@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtualenv / uv
+.venv/
+.python-version
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# macOS
+.DS_Store
+
+# Build artifacts
+dist/
+build/
+
+# Generated test reports — keep the directory and scorer_comparison.md, ignore the rest
+reports/*
+!reports/.gitkeep
+!reports/scorer_comparison.md
