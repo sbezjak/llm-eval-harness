@@ -41,3 +41,8 @@ The package layout signals the intended seams; preserve them when adding code:
 - `scripts/` — CLI entry points / one-off runners.
 
 `fastapi` and `httpx` are declared deps, suggesting a future HTTP surface (either the harness exposes results via FastAPI, or a fixture spins up a FastAPI app to evaluate). No such code exists yet — confirm intent with the user before adding either.
+
+## Working style with this user
+
+- **Prepare drafts/templates for any task the user has to do by hand.** When the next step is something only the user can do (write golden-set items, grade outputs, decide which threshold feels right), prepare a fill-in-the-blanks file with the structure pre-built — don't make the user start from a blank page. Examples: a markdown table with rows pre-filled from data, a YAML scaffold with TODOs, a notes template with section headings. Reduce the user's task to filling in the squishy parts.
+- **Capture explanations to `article.md` when teaching.** When the user asks "explain this to me" and the answer is non-trivial, mirror it (lightly cleaned up) into `article.md` as reference material. The chat scrolls; the article stays.
