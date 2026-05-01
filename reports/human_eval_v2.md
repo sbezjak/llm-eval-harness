@@ -32,7 +32,7 @@ The interesting columns are `judge passed` (vs `my verdict`) and
 - **judge relevance:** 10 /10
 - **judge score:** 1.000
 - **judge passed:** PASS
-- **judge note:**
+- **judge note:** Got the answer right even if it did include more words.
 
 ## factual_002 — chemical symbol for silver
 
@@ -46,7 +46,7 @@ The interesting columns are `judge passed` (vs `my verdict`) and
 - **judge relevance:** 10 /10
 - **judge score:** 1.000
 - **judge passed:** PASS
-- **judge note:**
+- **judge note:** Got the answer right even if it did include more words.
 
 ## factual_003 — continent of Lima
 
@@ -89,7 +89,7 @@ The interesting columns are `judge passed` (vs `my verdict`) and
 - **judge relevance:** 10 /10
 - **judge score:** 1.000
 - **judge passed:** PASS
-- **judge note:**
+- **judge note:** Got the answer right even if it did include more words.
 
 ## definition_002 — black hole
 
@@ -103,7 +103,7 @@ The interesting columns are `judge passed` (vs `my verdict`) and
 - **judge relevance:** 10 /10
 - **judge score:** 0.950
 - **judge passed:** PASS
-- **judge note:**
+- **judge note:** Different wording but right answer.
 
 ## procedural_001 — pytest -m  ⚠ (the centerpiece)
 
@@ -147,7 +147,7 @@ The interesting columns are `judge passed` (vs `my verdict`) and
 - **judge relevance:** 10 /10
 - **judge score:** 1.000
 - **judge passed:** PASS
-- **judge note:**
+- **judge note:** Got the answer right even if it did include more words.
 
 ## reasoning_003 — photosynthesis
 
@@ -161,7 +161,7 @@ The interesting columns are `judge passed` (vs `my verdict`) and
 - **judge relevance:** 9 /10
 - **judge score:** 0.850
 - **judge passed:** PASS
-- **judge note:**
+- **judge note:** Got the answer right even if it did include more words.
 
 ---
 
