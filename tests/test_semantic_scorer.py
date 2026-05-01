@@ -11,13 +11,13 @@ def scorer() -> SemanticScorer:
     return SemanticScorer(threshold=0.75)
 
 
-def test_identical_strings_score_near_one(scorer: SemanticScorer):
-    r = scorer.score("q", "Paris", "Paris")
+async def test_identical_strings_score_near_one(scorer: SemanticScorer):
+    r = await scorer.score("q", "Paris", "Paris")
     assert r.passed is True
     assert r.score == pytest.approx(1.0, abs=1e-3)
 
 
-def test_paraphrase_scores_higher_than_unrelated(scorer: SemanticScorer):
+async def test_paraphrase_scores_higher_than_unrelated(scorer: SemanticScorer):
     """The whole reason this scorer exists: prose-wrapped right answers
     sit much closer to the reference than unrelated text does.
 
@@ -27,12 +27,12 @@ def test_paraphrase_scores_higher_than_unrelated(scorer: SemanticScorer):
     too strict for short bare references, and a tuning decision we want
     driven by the real golden set, not by this unit test.
     """
-    paraphrase = scorer.score(
+    paraphrase = await scorer.score(
         "What is the capital of France?",
         "The capital of France is Paris.",
         "Paris",
     )
-    unrelated = scorer.score(
+    unrelated = await scorer.score(
         "What is the capital of France?",
         "Water boils at 100 degrees Celsius.",
         "Paris",
@@ -41,8 +41,8 @@ def test_paraphrase_scores_higher_than_unrelated(scorer: SemanticScorer):
     assert paraphrase.score > 0.6
 
 
-def test_unrelated_strings_score_low(scorer: SemanticScorer):
-    r = scorer.score(
+async def test_unrelated_strings_score_low(scorer: SemanticScorer):
+    r = await scorer.score(
         "What is the capital of France?",
         "Water boils at 100 degrees Celsius.",
         "Paris",
@@ -51,13 +51,13 @@ def test_unrelated_strings_score_low(scorer: SemanticScorer):
     assert r.score < 0.5
 
 
-def test_threshold_gates_verdict():
+async def test_threshold_gates_verdict():
     """Same pair, two thresholds, opposite verdicts."""
     output = "The capital of France is Paris."
     expected = "Paris"
 
-    lenient = SemanticScorer(threshold=0.3).score("q", output, expected)
-    strict = SemanticScorer(threshold=0.99).score("q", output, expected)
+    lenient = await SemanticScorer(threshold=0.3).score("q", output, expected)
+    strict = await SemanticScorer(threshold=0.99).score("q", output, expected)
 
     assert lenient.passed is True
     assert strict.passed is False
@@ -65,13 +65,13 @@ def test_threshold_gates_verdict():
     assert lenient.score == pytest.approx(strict.score, abs=1e-6)
 
 
-def test_score_is_in_unit_interval(scorer: SemanticScorer):
-    r = scorer.score("q", "anything at all", "something else entirely")
+async def test_score_is_in_unit_interval(scorer: SemanticScorer):
+    r = await scorer.score("q", "anything at all", "something else entirely")
     assert 0.0 <= r.score <= 1.0
 
 
-def test_reason_mentions_threshold(scorer: SemanticScorer):
-    r = scorer.score("q", "Paris", "Paris")
+async def test_reason_mentions_threshold(scorer: SemanticScorer):
+    r = await scorer.score("q", "Paris", "Paris")
     assert "threshold" in r.reason
     assert "cosine" in r.reason
 

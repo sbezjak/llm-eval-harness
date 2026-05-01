@@ -14,7 +14,7 @@ class ExactMatchScorer(Scorer):
 
     name = "exact_match"
 
-    def score(self, question: str, output: str, expected: str) -> ScoreResult:
+    async def score(self, question: str, output: str, expected: str) -> ScoreResult:
         passed = output == expected
         return ScoreResult(
             passed=passed,

@@ -43,7 +43,7 @@ class SemanticScorer(Scorer):
             self._model_cache[model_name] = SentenceTransformer(model_name)
         self._model = self._model_cache[model_name]
 
-    def score(self, question: str, output: str, expected: str) -> ScoreResult:
+    async def score(self, question: str, output: str, expected: str) -> ScoreResult:
         embeddings = self._model.encode([output, expected], convert_to_tensor=True)
         cosine = util.cos_sim(embeddings[0], embeddings[1]).item()
         clamped = max(0.0, min(1.0, cosine))

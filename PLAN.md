@@ -30,39 +30,58 @@ of polish. Do not import from it; just match its shape.
 
 Do not expand this scope without explicit confirmation.
 
-- **Golden set:** 50 hand-written question/expected-answer pairs in
-  `data/golden_set.yaml`, across 3 difficulty levels, with ~10 tagged as edge cases.
-  Edge case categories: `ambiguous`, `multi_part`, `no_good_answer`,
-  `adversarial_looking_but_benign`, `underspecified`.
-- **Three scorers in the pytest harness:**
-  1. Exact match
-  2. Semantic similarity — `sentence-transformers`, model `all-MiniLM-L6-v2`,
-     cosine similarity with a configurable threshold
-  3. LLM-as-judge — second Ollama call with a rubric prompt, returns a numeric
-     score and a reasoning string
-- **BLEU/ROUGE deliberately not in the test suite.** Instead a standalone
-  `scripts/traditional_metrics_demo.py` runs them on the golden set, prints
-  results, and the README explains why they're weak for open-ended LLM output.
-- **Scorer disagreement test (centerpiece):** parametrized over the golden set,
-  flags when the three scorers disagree by more than a configured threshold.
-- **Calibration test (~4 items):** "evaluate the evaluator." Known-correct and
-  known-wrong answers that each scorer must score correctly. Catches a broken
-  scorer.
-- **Bias sanity test (~4 items):** demographic detail swap (e.g. swap a name
-  from one demographic to another), assert the factual content of the answer
-  doesn't change. This is a sanity test, not a real bias evaluation.
-- **LLM-generated 200-item expansion:** `scripts/expand_dataset.py` uses Ollama
-  to generate ~200 additional items based on the golden 50, with a validation
-  + dedup pass against the golden set. Output committed to
-  `data/generated_set.yaml`.
-- **`scripts/scorer_comparison.py`:** produces a markdown table to
-  `reports/scorer_comparison.md` showing per-item scorer agreement plus summary
-  stats. This is the screenshot for the writeup — make it look good.
-- **Hosted pytest-html + coverage on GitHub Pages**, same setup as project 1.
-- **README at project-1 quality bar.** Sections: what it teaches / what it
-  tests / run it / project layout / tech.
+**Scope was deliberately cut at end of S4.** The original plan called
+for 50 hand-written items + 200 LLM-generated items + several support
+scripts. We cut both expansions and most of the scripts because the
+10-item V1 set is already producing 5 distinct findings (~1 finding
+per 2 items), and adding 240 more items would dilute signal-per-item
+without teaching new concepts. Quality > size for an eval harness
+writeup. The full reasoning is in `article.md` and the chat history
+of S4. **If you (future agent) read this section and feel the urge
+to "complete the original plan" by adding the 50-item expansion or
+the LLM-generated dataset — don't.** The cut is the deliberate choice.
 
-**Target test count:** 30–35 tests total.
+- **Golden set:** 18 hand-written question/expected-answer pairs in
+  `data/golden_set.yaml` (10 main items already done, 4 calibration
+  + 4 bias-swap to be added in S5).
+- **Three scorers in the pytest harness (all done at end of S4):**
+  1. Exact match — strict, unforgiving, the honest baseline.
+  2. Semantic similarity — `sentence-transformers/all-MiniLM-L6-v2`,
+     cosine, configurable threshold.
+  3. LLM-as-judge — second Ollama call, hybrid rubric (correctness +
+     relevance, 0–10 each, normalized to [0,1]), JSON parsing with
+     regex fallback.
+- **Disagreement test (centerpiece, done in S4):**
+  `test_scorers_agree_on_verdict` runs semantic + judge on each item,
+  fails when they disagree, logs both verdicts on every row.
+- **Calibration test (~4 items, S5):** "evaluate the evaluator."
+  Known-correct and known-wrong answers each scorer must score
+  correctly. Catches a broken scorer.
+- **Bias sanity test (~4 items, S5):** demographic detail swap; the
+  factual content of the answer shouldn't change. Sanity test, not
+  a real bias evaluation.
+- **Hosted pytest-html + coverage on GitHub Pages (S6),** same setup
+  as project 1.
+- **README at project-1 quality bar (S6).** Sections: what it
+  teaches / what it tests / run it / project layout / tech.
+
+**Cut from the original plan (do not re-add):**
+
+- ~~50-item hand-written expansion~~ — 10 deliberately-adversarial
+  items beat 50 mostly-easy ones for this writeup's purposes.
+- ~~`scripts/expand_dataset.py` + 200 LLM-generated items~~ — that's
+  ingestion engineering, not eval-harness work; belongs in project 2
+  (RAG ingestion) where document chunking already requires it.
+- ~~`scripts/scorer_comparison.py`~~ — partially redundant with the
+  disagreement test, which already shows per-item scorer behavior in
+  the html report.
+- ~~`scripts/traditional_metrics_demo.py` for BLEU/ROUGE~~ — the point
+  is already made in `article.md` Finding 1 (exact match fails on
+  prose-wrapped right answers; BLEU/ROUGE share the same n-gram
+  failure mode).
+
+**Target test count:** ~35–40 tests total when S5 lands (currently
+31 mocked + 41 ollama = 72; calibration adds ~12, bias adds ~4).
 
 ## Out of scope
 
@@ -95,13 +114,16 @@ Six focused sessions, mirroring how project 1 was built. Don't jump ahead.
    Ollama call, structured output parsing. The disagreement test that
    compares all three scorers — this is the centerpiece. End state: you
    can see, per item, which scorer says what.
-5. **Expand dataset + bias + calibration.** Golden set grows to 50
-   hand-written items. `scripts/expand_dataset.py` produces 200 generated
-   items with validation/dedup. Bias sanity test added. Calibration test
-   added.
-6. **Polish.** README, hosted GitHub Pages reports, coverage, durations,
-   `scripts/scorer_comparison.py` produces the comparison report,
-   `scripts/traditional_metrics_demo.py` for BLEU/ROUGE, writeup draft.
+5. **Calibration + bias sanity (focused).** Add ~4 calibration items
+   (known-correct + known-wrong, each scorer must score correctly) and
+   ~4 bias-swap pairs (demographic detail swap, factual content
+   shouldn't change) to `golden_set.yaml`. New tests:
+   `test_calibration.py` and `test_bias.py`. Update `article.md` with
+   whatever they find. Skip the dataset expansion (see "Cut from the
+   original plan" above).
+6. **Polish.** README at project-1 quality bar, hosted GitHub Pages
+   reports, coverage, pytest durations, writeup draft. No support
+   scripts beyond what already exists.
 
 ## Working principles
 

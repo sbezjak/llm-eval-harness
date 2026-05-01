@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Pytest-based evaluation harness for LLM systems. Targets Ollama (local, `localhost:11434`) as the model backend. Python 3.11+, managed with `uv`.
 
-As of this writing the repository is a scaffold: `eval_harness/`, `eval_harness/providers/`, and `eval_harness/scorers/` exist as empty packages; `data/`, `reports/`, `scripts/`, and `tests/` are empty. Implementations should be added under these directories — do not relocate the package layout, since `pyproject.toml` pins `packages = ["eval_harness"]` for the wheel build.
+Three scorers live under `eval_harness/scorers/`: `ExactMatchScorer`, `SemanticScorer` (sentence-transformers, cosine), `LLMJudgeScorer` (second Ollama call with a hybrid rubric prompt). All three implement the same async `Scorer.score(question, output, expected) -> ScoreResult` contract. Provider code is in `eval_harness/providers/` (only `OllamaProvider` so far). Golden set lives at `data/golden_set.yaml`, loaded and validated by `eval_harness/dataset.py`. Do not relocate the package layout — `pyproject.toml` pins `packages = ["eval_harness"]` for the wheel build.
 
 ## Commands
 
@@ -46,3 +46,4 @@ The package layout signals the intended seams; preserve them when adding code:
 
 - **Prepare drafts/templates for any task the user has to do by hand.** When the next step is something only the user can do (write golden-set items, grade outputs, decide which threshold feels right), prepare a fill-in-the-blanks file with the structure pre-built — don't make the user start from a blank page. Examples: a markdown table with rows pre-filled from data, a YAML scaffold with TODOs, a notes template with section headings. Reduce the user's task to filling in the squishy parts.
 - **Capture explanations to `article.md` when teaching.** When the user asks "explain this to me" and the answer is non-trivial, mirror it (lightly cleaned up) into `article.md` as reference material. The chat scrolls; the article stays.
+- **Default to production / best-practice solutions; take the pragmatic shortcut only when the trade-off is justified for this project's scope — and call the trade-off out explicitly.** Don't silently pick the easy path. Name what the production-grade pattern would be, name why we're not doing it here (scope, runtime context, test budget), and write the trade-off into `article.md` so the writeup shows it was a deliberate choice, not an oversight. Worked example: scorers are async-only because this harness has one runtime context (pytest); production frameworks like DeepEval/Ragas use dual sync+async interfaces to avoid async contagion. We picked the simpler path eyes-open — see `article.md`.
