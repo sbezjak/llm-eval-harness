@@ -29,3 +29,6 @@ build/
 reports/*
 !reports/.gitkeep
 !reports/scorer_comparison.md
+
+# Private working notes (not for the public-facing repo)
+article.md

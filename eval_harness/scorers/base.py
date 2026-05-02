@@ -23,12 +23,14 @@ class Scorer(ABC):
 
     `score` is async because some scorers (LLM-as-judge) make HTTP calls at
     score time. Scorers without I/O (exact match, semantic similarity) just
-    don't await anything. The whole harness runs under
-    `asyncio_mode = "auto"`, so every test is async by default — async-only
-    is the consistent choice given a single runtime context.
+    don't await anything. The harness runs under `asyncio_mode = "auto"`,
+    so every test is async by default — async-only is the consistent
+    choice given a single runtime context.
 
-    See `article.md` for the explicit trade-off vs. the dual sync+async
-    interface that production frameworks (DeepEval, Ragas) use.
+    Production frameworks (DeepEval, Ragas) expose dual sync+async
+    interfaces to avoid async contagion across many runtime contexts. We
+    don't — we have one runtime (pytest) and dual interfaces would double
+    the surface area for no gain here.
     """
 
     name: str

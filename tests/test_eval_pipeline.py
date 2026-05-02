@@ -8,13 +8,10 @@ from eval_harness.scorers.base import Scorer
 from eval_harness.scorers.exact_match import ExactMatchScorer
 from eval_harness.scorers.judge import LLMJudgeScorer
 from eval_harness.scorers.semantic import SemanticScorer
+from tests._xfail import with_xfail
 
 GOLDEN_ITEMS = load_golden_set()
-SCORERS: list[Scorer] = [
-    ExactMatchScorer(),
-    SemanticScorer(threshold=0.75),
-    LLMJudgeScorer(threshold=0.7),
-]
+GOLDEN_BY_ID = {i.id: i for i in GOLDEN_ITEMS}
 
 # Cache Ollama responses across scorers: each item's question is asked
 # exactly once per pytest run, no matter how many scorers we evaluate it
@@ -31,16 +28,99 @@ async def _ollama_response(item: GoldenItem) -> str:
     return _response_cache[item.id]
 
 
+# ---------------------------------------------------------------------------
+# Documented disagreements on the LIVE pipeline.
+#
+# These dicts encode "scorer says FAIL on the live model answer for a
+# structural reason we already understand." That's a different invariant
+# than calibration's "scorer disagrees with human on a frozen output" —
+# e.g. on procedural_001 exact match correctly says FAIL (human agrees,
+# so it's not a calibration disagreement) but the pipeline assertion
+# `result.passed` still fires, so we xfail it here too.
+#
+# strict=True: if a documented disagreement starts passing (e.g. the
+# live model changes its answer shape), that's an XPASS and the suite
+# breaks loudly. We want to know — it usually means model drift.
+# ---------------------------------------------------------------------------
+
+_PROSE = "exact match: model wraps the right answer in conversational prose, output != expected"
+
+EXACT_MATCH_DISAGREEMENTS: dict[str, str] = {
+    "factual_001": _PROSE,
+    "factual_002": _PROSE,
+    "factual_003": _PROSE,
+    "factual_004": _PROSE,
+    "definition_001": _PROSE,
+    "definition_002": _PROSE,
+    "procedural_001": (
+        "exact match: model hallucinates a fake pytest flag; output != expected "
+        "(scorer is correct here — same verdict as the human)"
+    ),
+    "reasoning_001": _PROSE,
+    "reasoning_002": _PROSE,
+    "reasoning_003": _PROSE,
+}
+
+SEMANTIC_DISAGREEMENTS: dict[str, str] = {
+    "factual_002": (
+        "semantic: expected is a 2-character symbol ('Ag'); embedding distance to a "
+        "full sentence pulls cosine below 0.75"
+    ),
+    "factual_003": (
+        "semantic: short expected ('South America') vs prose answer pulls cosine "
+        "below 0.75"
+    ),
+    "factual_004": (
+        "semantic: model returns a bulleted list of all 8 planets; expected is the "
+        "digit '8' — embedding can't see past the shape mismatch"
+    ),
+    "definition_001": (
+        "semantic: short expected ('Artificial Intelligence') vs full-sentence answer"
+    ),
+    "definition_002": (
+        "semantic: same idea phrased with different words; embedding similarity "
+        "below threshold"
+    ),
+    "procedural_001": (
+        "semantic: model's hallucinated flag has different vocabulary from the "
+        "real one; cosine below 0.75 (scorer is correct here — same verdict as "
+        "the human)"
+    ),
+}
+
+# Judge passes every live item in the golden set under llama3.2. If that
+# ever changes (XPASS / hard fail in this test), it's a real signal.
+JUDGE_DISAGREEMENTS: dict[str, str] = {}
+
+
+def _live_params() -> list:
+    """Cross-product of (item, scorer) with per-pair xfail markers."""
+    scorers: list[tuple[Scorer, dict[str, str]]] = [
+        (ExactMatchScorer(), EXACT_MATCH_DISAGREEMENTS),
+        (SemanticScorer(threshold=0.75), SEMANTIC_DISAGREEMENTS),
+        (LLMJudgeScorer(threshold=0.7), JUDGE_DISAGREEMENTS),
+    ]
+    params = []
+    for item in GOLDEN_ITEMS:
+        for scorer, dmap in scorers:
+            param_id = f"{item.id}-{scorer.name}"
+            if item.id in dmap:
+                marks = [pytest.mark.xfail(strict=True, reason=dmap[item.id])]
+            else:
+                marks = []
+            params.append(pytest.param(item, scorer, id=param_id, marks=marks))
+    return params
+
+
 @pytest.mark.ollama
-@pytest.mark.parametrize("scorer", SCORERS, ids=[s.name for s in SCORERS])
-@pytest.mark.parametrize("item", GOLDEN_ITEMS, ids=[i.id for i in GOLDEN_ITEMS])
+@pytest.mark.parametrize("item,scorer", _live_params())
 async def test_scorer_against_live_ollama(item: GoldenItem, scorer: Scorer):
     """End-to-end: ask a live Ollama, score with each scorer in turn.
 
     The pytest html report becomes the artifact: every (item, scorer) pair
     is a row. Disagreements between scorers — exact match fails on a
     prose-wrapped answer that semantic similarity passes — are exactly the
-    signal we want to see.
+    signal we want to see, encoded as xfail-strict above.
 
     For the judge specifically, the *rendered rubric prompt* is logged so
     you can confirm what the judge actually saw. Useful when debugging
@@ -71,9 +151,42 @@ async def test_scorer_against_live_ollama(item: GoldenItem, scorer: Scorer):
     )
 
 
+# ---------------------------------------------------------------------------
+# Centerpiece: do the two threshold-based scorers agree?
+# ---------------------------------------------------------------------------
+
+SEMANTIC_VS_JUDGE_DISAGREEMENTS: dict[str, str] = {
+    "factual_002": (
+        "semantic FAIL + judge PASS — expected is 'Ag', model returned a sentence; "
+        "embedding can't bridge the shape gap, judge correctly recognises the "
+        "answer is right"
+    ),
+    "factual_003": (
+        "semantic FAIL + judge PASS — short expected ('South America') vs prose "
+        "answer; same shape-gap pattern"
+    ),
+    "factual_004": (
+        "semantic FAIL + judge PASS — bulleted list of planets vs the digit '8'"
+    ),
+    "definition_001": (
+        "semantic FAIL + judge PASS — 'Artificial Intelligence' vs a full-sentence "
+        "definition"
+    ),
+    "definition_002": (
+        "semantic FAIL + judge PASS — same idea, different wording"
+    ),
+    "procedural_001": (
+        "semantic FAIL + judge PASS — judge falls for its own hallucinated flag "
+        "(self-grading bias); semantic correctly says FAIL"
+    ),
+}
+
+
 @pytest.mark.ollama
-@pytest.mark.parametrize("item", GOLDEN_ITEMS, ids=[i.id for i in GOLDEN_ITEMS])
-async def test_scorers_agree_on_verdict(item: GoldenItem):
+@pytest.mark.parametrize("item_id", with_xfail(
+    [i.id for i in GOLDEN_ITEMS], SEMANTIC_VS_JUDGE_DISAGREEMENTS,
+))
+async def test_scorers_agree_on_verdict(item_id: str):
     """The S4 centerpiece: do the two threshold-based scorers agree on
     pass/fail per item?
 
@@ -93,14 +206,14 @@ async def test_scorers_agree_on_verdict(item: GoldenItem):
 
     Per-item logs print on every run regardless of agreement, so the html
     report shows the full picture (both verdicts, both scores, the judge's
-    reasoning) for each item — the agreements are data too. The test
-    itself only fails on disagreement; failure messages are deliberately
-    redundant with the logs because pytest surfaces them in the failure
-    table at the top of the report.
+    reasoning) for each item — the agreements are data too. Documented
+    disagreements are xfail-strict above; an unexpected agreement (XPASS)
+    means a finding has silently changed and the suite will break.
 
     Don't "fix" disagreement failures by lowering thresholds; they are the
     data.
     """
+    item = GOLDEN_BY_ID[item_id]
     output = await _ollama_response(item)
 
     semantic = await SemanticScorer(threshold=0.75).score(item.question, output, item.expected)
@@ -118,13 +231,12 @@ async def test_scorers_agree_on_verdict(item: GoldenItem):
     print(f"judge:     {jdg_verdict}  (score={judge.score:.3f}, threshold=0.7)")
     print(f"judge says: {judge.reason}")
 
-    if semantic.passed != judge.passed:
-        pytest.fail(
-            f"\n  scorers disagree on {item.id!r}:"
-            f"\n  question:  {item.question}"
-            f"\n  expected:  {item.expected!r}"
-            f"\n  got:       {output!r}"
-            f"\n  semantic:  {sem_verdict} (score={semantic.score:.3f}, threshold=0.75)"
-            f"\n  judge:     {jdg_verdict} (score={judge.score:.3f}, threshold=0.7)"
-            f"\n  judge says: {judge.reason}"
-        )
+    assert semantic.passed == judge.passed, (
+        f"\n  scorers disagree on {item.id!r}:"
+        f"\n  question:  {item.question}"
+        f"\n  expected:  {item.expected!r}"
+        f"\n  got:       {output!r}"
+        f"\n  semantic:  {sem_verdict} (score={semantic.score:.3f}, threshold=0.75)"
+        f"\n  judge:     {jdg_verdict} (score={judge.score:.3f}, threshold=0.7)"
+        f"\n  judge says: {judge.reason}"
+    )

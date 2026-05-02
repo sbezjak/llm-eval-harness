@@ -54,9 +54,16 @@ the LLM-generated dataset — don't.** The cut is the deliberate choice.
 - **Disagreement test (centerpiece, done in S4):**
   `test_scorers_agree_on_verdict` runs semantic + judge on each item,
   fails when they disagree, logs both verdicts on every row.
-- **Calibration test (~4 items, S5):** "evaluate the evaluator."
-  Known-correct and known-wrong answers each scorer must score
-  correctly. Catches a broken scorer.
+- **Calibration test (S5):** "evaluate the evaluator." `data/human_labels.yaml`
+  freezes the 10 golden-set Ollama outputs paired with the author's human
+  verdict from `reports/human_eval_v2.md`. `tests/test_calibration.py`
+  parametrizes (item × scorer) and asserts each scorer's PASS/FAIL agrees
+  with the human verdict, with `xfail(strict=True)` on the items where
+  Findings 1, 3, and 4 say the scorer structurally disagrees. The xfail
+  set IS the contract: an unexpected pass means a finding has changed and
+  article.md needs updating. This is closer to production-grade
+  calibration than synthetic fixtures — real outputs, real labels,
+  agreement-against-humans is the metric.
 - **Bias sanity test (~4 items, S5):** demographic detail swap; the
   factual content of the answer shouldn't change. Sanity test, not
   a real bias evaluation.
@@ -69,9 +76,20 @@ the LLM-generated dataset — don't.** The cut is the deliberate choice.
 
 - ~~50-item hand-written expansion~~ — 10 deliberately-adversarial
   items beat 50 mostly-easy ones for this writeup's purposes.
-- ~~`scripts/expand_dataset.py` + 200 LLM-generated items~~ — that's
-  ingestion engineering, not eval-harness work; belongs in project 2
-  (RAG ingestion) where document chunking already requires it.
+- **Deferred (not cut for the wrong reason):** the original plan called for
+  `scripts/expand_dataset.py` to generate 200 synthetic Q&A pairs and
+  validate them against the golden set for quality and diversity. An
+  earlier version of this PLAN dismissed it as "ingestion engineering" —
+  that was wrong. Synthetic test data validation IS eval-harness work
+  (prompt design for synthesis, embedding-space coverage, scorer behavior
+  on synthetic vs hand-written, the failure-mode question of whether LLMs
+  generate items adversarial enough to break themselves). It teaches a
+  distinct lesson Findings 1–6 don't cover. We're deferring it to an
+  optional **S7** after S6 ships, not deleting it. The S5 (calibration +
+  bias) story is coherent and complete on its own; wedging synthetic-data
+  generation into S5 would dilute both. If S7 happens it produces a
+  Finding 6/7 ("synthetic test data has these specific blind spots vs
+  hand-written items") and a section in article.md and the README.
 - ~~`scripts/scorer_comparison.py`~~ — partially redundant with the
   disagreement test, which already shows per-item scorer behavior in
   the html report.
@@ -82,6 +100,29 @@ the LLM-generated dataset — don't.** The cut is the deliberate choice.
 
 **Target test count:** ~35–40 tests total when S5 lands (currently
 31 mocked + 41 ollama = 72; calibration adds ~12, bias adds ~4).
+
+**Deferred ideas (not cut, not in scope right now):**
+
+- **Determinism / temp=0 audit.** Run `OllamaProvider.generate()` 3-5×
+  on the same prompt at temperature=0 and diff the outputs. They will
+  not be identical. The lesson is that "temp=0" is a request, not a
+  guarantee — which is *why* we freeze the calibration corpus instead
+  of regenerating. Largely subsumed by `tests/test_judge_variance.py`.
+- **Score-distribution visualization.** A small script that plots a
+  histogram of every semantic and judge score in the V3 run, with
+  right answers and wrong answers in different colors. Shows visually
+  why no threshold can separate them — the visual proof behind the
+  "semantic is not measuring correctness" finding. ~30 min of work,
+  data already exists in test output. Optional polish if S6 finishes
+  with budget left.
+- **S7: synthetic test-data generation + validation.** See "Cut from
+  the original plan" above — deferred, not deleted. Teaches a distinct
+  lesson (synthetic data has these specific blind spots vs hand-written)
+  that the current findings don't cover.
+
+Beyond these, additional eval topics belong to later projects in the
+roadmap (multi-turn eval, tool-use eval, RAG eval, agent eval,
+cross-model benchmarking) — don't rope them into project 1.
 
 ## Out of scope
 

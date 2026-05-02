@@ -1,0 +1,239 @@
+# Frozen calibration corpus.
+#
+# Each entry pairs a real Ollama output (llama3.2, temp=0) with the
+# human verdict from reports/human_eval_v2.md. tests/test_calibration.py
+# uses these to measure scorer-vs-human agreement WITHOUT calling Ollama,
+# so calibration is deterministic and reproducible.
+#
+# Do NOT regenerate this file casually. The human verdicts are tied to
+# the specific frozen_output text. If you re-run the model and outputs
+# drift, the verdicts may no longer apply and need re-grading.
+
+- id: factual_001
+  question: What is the capital of Slovenia?
+  expected: Ljubljana
+  frozen_output: The capital of Slovenia is Ljubljana.
+  human_verdict: PASS
+- id: factual_002
+  question: What is the chemical symbol for silver?
+  expected: Ag
+  frozen_output: The chemical symbol for silver is Ag.
+  human_verdict: PASS
+- id: factual_003
+  question: In what continent is Lima located?
+  expected: South America
+  frozen_output: Lima is the capital city of Peru, and it is located in South America.
+  human_verdict: PASS
+- id: factual_004
+  question: How many planets are in our solar system?
+  expected: '8'
+  frozen_output: 'There are eight planets in our solar system:
+
+
+    1. Mercury
+
+    2. Venus
+
+    3. Earth
+
+    4. Mars
+
+    5. Jupiter
+
+    6. Saturn
+
+    7. Uranus
+
+    8. Neptune
+
+
+    Note: Pluto was previously considered a planet, but in 2006, it was reclassified as a dwarf planet by the International Astronomical Union (IAU).'
+  human_verdict: PASS
+- id: definition_001
+  question: What does the acronym AI stand for?
+  expected: Artificial Intelligence
+  frozen_output: The acronym "AI" stands for Artificial Intelligence.
+  human_verdict: PASS
+- id: definition_002
+  question: In one sentence, what is a black hole?
+  expected: A region of space where the gravitational pull is so strong that nothing, not even light, can escape from it.
+  frozen_output: A black hole is a region in space where the gravitational pull is so strong that nothing, including light, can escape from it, making it invisible and detectable only through its effects on surrounding matter.
+  human_verdict: PASS
+- id: procedural_001
+  question: Which pytest command runs tests marked either 'slow' or 'network'?
+  expected: pytest -m 'slow or network'
+  frozen_output: 'You can use the following pytest command to run tests marked with either ''slow'' or ''network'':
+
+
+    ```bash
+
+    pytest --durations=0 --junit-xml=/path/to/output.xml --junit-xml-filter=''slow|network''
+
+    ```
+
+
+    However, a more common and efficient way is to use the `--junit-xml` option along with the `-m` option:
+
+
+    ```bash
+
+    pytest -m slow --junit-xml=/path/to/output.xml
+
+    pytest -m network --junit-xml=/path/to/output.xml
+
+    ```
+
+
+    Or you can combine both in one command:
+
+
+    ```bash
+
+    pytest -m slow --junit-xml=/path/to/output.xml && pytest -m network --junit-xml=/path/to/output.xml
+
+    ```
+
+
+    But the most efficient way is to use the `--junit-xml-filter` option with a regular expression that matches ''slow'' or ''network'':
+
+
+    ```bash
+
+    pytest --durations=0 --junit-xml-filter=''slow|network''
+
+    ```
+
+
+    This will run all tests marked with either ''slow'' or ''network''.'
+  human_verdict: FAIL
+- id: reasoning_001
+  question: What is the difference between cold blooded and warm blooded animals?
+  expected: Cold blooded animals rely on external sources for body heat, while warm blooded animals maintain a constant internal body temperature.
+  frozen_output: 'The terms "cold-blooded" and "warm-blooded" are outdated and can be misleading. The correct terminology is "ectothermic" (cold-blooded) and "endothermic" (warm-blooded).
+
+
+    **Ectothermic (Cold-Blooded) Animals:**
+
+
+    Ectothermic animals, also known as cold-blooded animals, rely on external sources of heat to regulate their body temperature. Their metabolic rate is influenced by the environment, and they often bask in sunlight or seek shade to maintain a stable body temperature.
+
+
+    Examples of ectothermic animals include:
+
+
+    * Reptiles (snakes, lizards, turtles)
+
+    * Amphibians (frogs, toads)
+
+    * Fish
+
+    * Insects (most species)
+
+
+    **Endothermic (Warm-Blooded) Animals:**
+
+
+    Endothermic animals, also known as warm-blooded animals, generate heat internally and maintain a relatively constant body temperature regardless of the environment. This allows them to be active in a wider range of temperatures.
+
+
+    Examples of endothermic animals include:
+
+
+    * Mammals (humans, dogs, cats)
+
+    * Birds
+
+    * Some species of fish (such as goldfish)
+
+
+    Key differences between ectothermic and endothermic animals:
+
+
+    1. **Body temperature regulation:** Ectothermic animals rely on external sources of heat, while endothermic animals generate heat internally.
+
+    2. **Metabolic rate:** Endothermic animals have a higher metabolic rate than ectothermic animals, which allows them to maintain their body temperature.
+
+    3. **Activity range:** Endothermic animals can be active in a wider range of temperatures than ectothermic animals.
+
+    4. **Energy efficiency:** Ectothermic animals often require more energy to maintain their body temperature, while endothermic animals are generally more energy-efficient.
+
+
+    It''s worth noting that the terms "cold-blooded" and "warm-blooded" were historically used to describe these two groups of animals, but they can be misleading and have been largely replaced by the more accurate terms ectothermic and endothermic.'
+  human_verdict: PASS
+- id: reasoning_002
+  question: In one sentence, why does ice float on water?
+  expected: Ice floats on water because it is less dense than liquid water.
+  frozen_output: Ice floats on water because it is less dense than liquid water, meaning that the molecules in ice are arranged in a crystalline structure that takes up more space than the molecules in liquid water.
+  human_verdict: PASS
+- id: reasoning_003
+  question: How does photosynthesis work in plants?
+  expected: Photosynthesis in plants converts light energy into chemical energy, using sunlight to transform carbon dioxide and water into glucose and oxygen.
+  frozen_output: 'Photosynthesis is the process by which plants, algae, and some bacteria convert light energy from the sun into chemical energy in the form of organic compounds, such as glucose. This process is essential for life on Earth, as it provides energy and organic compounds for plants to grow and thrive.
+
+
+    Here''s a step-by-step explanation of how photosynthesis works:
+
+
+    **Step 1: Light Absorption**
+
+
+    Light-absorbing pigments, such as chlorophyll, are present in the thylakoid membranes of plant cells. These pigments absorb light energy from the sun, which is then transferred to a special molecule called an electron acceptor.
+
+
+    **Step 2: Electron Transfer**
+
+
+    The absorbed light energy excites electrons in the pigment molecules, which are then transferred to the electron acceptor. This process creates a high-energy molecule called ATP (adenosine triphosphate).
+
+
+    **Step 3: Water Splitting**
+
+
+    Water is split into oxygen and hydrogen ions using the energy from ATP. This process is known as photolysis.
+
+
+    **Step 4: Calvin Cycle**
+
+
+    The hydrogen ions from water are used to produce glucose through a series of chemical reactions called the Calvin cycle. The Calvin cycle involves the fixation of carbon dioxide, reduction of CO2, and synthesis of glucose.
+
+
+    **Step 5: Oxygen Release**
+
+
+    Oxygen is released as a byproduct of photosynthesis, which is essential for the survival of most living organisms.
+
+
+    **Equation:**
+
+
+    6 CO2 + 6 H2O + light energy → C6H12O6 (glucose) + 6 O2
+
+
+    **Key Players:**
+
+
+    1. Chlorophyll: absorbs light energy
+
+    2. ATP: stores energy from light absorption
+
+    3. Water: provides hydrogen ions for glucose production
+
+    4. Calvin cycle enzymes: catalyze chemical reactions in the Calvin cycle
+
+
+    **Importance of Photosynthesis:**
+
+
+    Photosynthesis is essential for life on Earth, as it:
+
+
+    1. Provides energy and organic compounds for plants to grow and thrive.
+
+    2. Supports the food chain by producing oxygen and organic compounds that are consumed by animals.
+
+    3. Regulates Earth''s climate by removing CO2 from the atmosphere.
+
+
+    In summary, photosynthesis is a complex process that involves light absorption, electron transfer, water splitting, and the Calvin cycle to produce glucose and oxygen.'
+  human_verdict: PASS
