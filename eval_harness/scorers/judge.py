@@ -1,3 +1,41 @@
+"""LLM-as-judge: a second model grades the first model's answer.
+
+Plain-English version of what this file does, end to end:
+
+1. Take the question, the expected answer, and the model's actual
+   answer. Drop them into a grading-instructions template (see
+   `RUBRIC_PROMPT`).
+2. Send that filled-in prompt to an LLM (a *separate* call from
+   whatever produced the answer being graded).
+3. The LLM replies with a small JSON blob containing two integer
+   scores (correctness 0-10, relevance 0-10) and a one-line
+   explanation.
+4. Parse the JSON, average the two scores, divide by 10 to get a
+   score in [0, 1], compare against a threshold, return PASS or FAIL.
+
+Why bother. The simpler scorers (exact match, BLEU, ROUGE, semantic
+similarity) all compare *text shapes*. They can be fooled by:
+
+- A right answer phrased very differently from the expected (e.g. a
+  bulleted list of all 8 planets when the expected was just "8" —
+  exact match and BLEU/ROUGE see no overlap; embeddings see different
+  shape).
+- A wrong answer that uses the right vocabulary (semantic similarity
+  passes it).
+
+A judge LLM reads both texts and can sometimes recognize "yes, this
+answers the question" or "no, this is plausible-sounding nonsense"
+where pure-text comparison can't.
+
+Important caveat. When the judge and the answering model are the same
+weights (the case in this project — both are llama3.2), the judge has
+a blind spot for its own hallucinations. It produced the same
+nonsense; it can't tell it apart from a real answer. Surfacing this
+"self-grading bias" is one of the things this harness is here to
+demonstrate — see `tests/test_calibration.py` and the
+`procedural_001` item in `data/human_labels.yaml`.
+"""
+
 from __future__ import annotations
 
 import json
@@ -10,12 +48,8 @@ from eval_harness.scorers.base import Scorer, ScoreResult
 DEFAULT_THRESHOLD = 0.7
 DEFAULT_MODEL = "llama3.2"
 
-# Hybrid rubric: judge sees the expected answer as a reference, not as a
-# string to match verbatim. Two dimensions (correctness, relevance) — keeps
-# the rubric small enough that a 3B-parameter local model can follow it
-# without losing the schema. Reasoning-first, score-second: a model asked
-# to justify a number it already committed to tends to rationalize rather
-# than reconsider.
+# The grading instructions sent to the judge. See LLMJudgeScorer's
+# docstring for why the rubric looks the way it does.
 RUBRIC_PROMPT = """You are a strict but fair grader for a question-answering system.
 
 You will be given:
@@ -98,23 +132,35 @@ def _parse_judge_response(raw: str) -> tuple[int, int, str]:
 
 
 class LLMJudgeScorer(Scorer):
-    """Second LLM call grades the first's output against a rubric.
+    """Calls a grading LLM and turns its reply into a PASS/FAIL.
 
-    Hybrid design: the judge sees the expected answer as a *reference*,
-    but the model's answer doesn't have to match it verbatim — only be
-    a correct answer to the question. This is what catches right answers
-    in unusual shapes (e.g. a bulleted list of all 8 planets when the
-    expected was just "8") that semantic similarity scores low.
+    Three rubric design choices are worth knowing about, since they
+    explain why `RUBRIC_PROMPT` looks the way it does:
 
-    `judge_fn` is a sync-or-async callable that takes a prompt and
-    returns the judge's raw text response. Defaults to a fresh
-    `OllamaProvider` at temperature 0 (judge wants determinism). Tests
-    inject a fake `judge_fn` to avoid HTTP at all.
+    - **Reference is a hint, not a string to match.** The judge is told
+      the expected answer is a reference — the model's answer can be
+      phrased completely differently and still be correct. This is what
+      lets the judge pass right-but-different-shape answers (a bulleted
+      list when the expected was a single number, etc).
+    - **Two scores, not one.** Asking for *correctness* and *relevance*
+      separately keeps two distinct failure modes from being smeared
+      into a single number: a right-but-rambling answer scores high on
+      correctness and low on relevance; a confident hallucination
+      scores low on correctness and high on relevance. A single
+      "quality" score loses that signal.
+    - **Reasoning before score.** The rubric asks the judge to justify
+      its score *before* writing the number down. A model asked for
+      the score first tends to commit to a number and rationalize it.
 
-    Self-grading bias: when judge_fn is the same model that produced the
-    answer, the judge is expected to be soft on its own outputs. That's
-    a feature for this project — surfacing self-grading bias is the
-    point. Cross-model comparison is project 5 in the roadmap.
+    Construction.
+
+    - `threshold` — pass/fail cutoff on the [0, 1] combined score.
+    - `judge_fn` — async callable that takes a prompt and returns the
+      judge's raw text. Defaults to a fresh `OllamaProvider` at
+      temperature 0 (judge wants determinism). Tests inject a fake
+      `judge_fn` to avoid touching HTTP at all.
+    - `model` — the Ollama model name to use when `judge_fn` is the
+      default.
     """
 
     name = "judge"

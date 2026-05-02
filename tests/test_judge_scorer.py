@@ -163,9 +163,28 @@ def test_judge_threshold_validated_at_construction():
 
 @pytest.mark.mocked
 async def test_judge_reason_includes_dimension_breakdown():
-    """The disagreement report relies on per-scorer `reason` to explain
-    why a scorer voted the way it did. For the judge specifically, the
-    breakdown by dimension is the interesting signal."""
+    """The `reason` string is what shows up in the pytest report when
+    a test fails — for a QA engineer scanning failures, this is the
+    main bit of evidence. For the judge specifically, the most useful
+    thing to surface is *why* the judge voted the way it did, broken
+    down by dimension.
+
+    Concrete example: the judge can fail an item because the answer is
+    factually wrong (low correctness, high relevance — e.g. a
+    confident hallucination on the right topic) OR because the answer
+    drifted off-topic (high correctness, low relevance — e.g. a true
+    statement that doesn't actually answer the question). One overall
+    score can't distinguish those; the per-dimension breakdown can.
+
+    This test feeds a known-shape mock response, scores it, and asserts
+    that the rendered `reason` string surfaces:
+      - the correctness number (2/10),
+      - the relevance number (9/10),
+      - the judge's free-text justification ("wrong but on topic").
+
+    If any of those drop out of the rendered reason, downstream
+    failure reports lose their main diagnostic value.
+    """
     raw = '{"reasoning": "wrong but on topic", "correctness": 2, "relevance": 9}'
     scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(raw))
     r = await scorer.score("Q", "A", "E")

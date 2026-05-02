@@ -48,8 +48,3 @@ The package layout signals the intended seams; preserve them when adding code:
 - **Capture explanations to `article.md` when teaching.** When the user asks "explain this to me" and the answer is non-trivial, mirror it (lightly cleaned up) into `article.md` as reference material. The chat scrolls; the article stays.
 - **Default to production / best-practice solutions; take the pragmatic shortcut only when the trade-off is justified for this project's scope — and call the trade-off out explicitly.** Don't silently pick the easy path. Name what the production-grade pattern would be, name why we're not doing it here (scope, runtime context, test budget), and write the trade-off into `article.md` so the writeup shows it was a deliberate choice, not an oversight. Worked example: scorers are async-only because this harness has one runtime context (pytest); production frameworks like DeepEval/Ragas use dual sync+async interfaces to avoid async contagion. We picked the simpler path eyes-open — see `article.md`.
 
-## Part of a series of projects
-P0: Local LLM API tests: https://github.com/sbezjak/llm-api-testing
-P1: This project (check PLAN.md for more if needed)
-
-

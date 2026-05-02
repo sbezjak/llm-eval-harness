@@ -9,22 +9,35 @@ DEFAULT_VARIANT = "rougeL"
 
 
 class RougeScorer(Scorer):
-    """ROUGE-L F1 between `output` (hypothesis) and `expected` (reference).
+    """Did the model's answer cover the words in the expected answer?
 
-    ROUGE was designed for summarization: did the model's summary cover
-    the content of a human-written reference summary? Where BLEU
-    emphasizes precision, ROUGE emphasizes recall. ROUGE-L uses the
-    *longest common subsequence* (matches don't have to be contiguous,
-    just same order), which makes it more forgiving than BLEU on short
-    answers — but still vocabulary-bound.
+    Explanation: ROUGE-L looks for the *longest common
+    subsequence* (LCS) of words between the two texts. "Subsequence"
+    means same order, but the matching words don't have to be next to
+    each other — so "the cat sat on the mat" and "the cat quietly sat
+    on the warm mat" share the LCS "the cat sat on the mat" (six
+    words) even though they aren't identical strings. From that LCS
+    length, ROUGE-L computes:
 
-    Backed by `rouge-score` (Google's reference implementation, used by
-    summarization papers). Default variant is ROUGE-L F1; default
-    threshold 0.40 follows summarization-paper convention.
+    - *recall*    — how many of the *reference's* words made it into
+      the LCS (did the model cover the reference?).
+    - *precision* — how many of the *output's* words made it into the
+      LCS (did the model stick to relevant words?).
+    - *F1*        — the harmonic mean of the two, what we report.
 
-    Like BLEU, this scorer is expected to fail on the prose-wrapped
-    short-factual cases on this corpus — n-gram overlap is structurally
-    the wrong question for "Paris" vs "The capital of France is Paris."
+    Where BLEU emphasizes precision (translation cares: "did the model
+    pick the right words?"), ROUGE emphasizes recall (summarization
+    cares: "did the model cover the source?"). They are siblings, not
+    competitors — both are vocabulary-overlap metrics that don't
+    understand meaning, just from different angles.
+
+    Backed by `rouge-score` (Google's reference implementation).
+    Default variant is ROUGE-L F1, default threshold 0.40 follows
+    summarization-paper convention.
+
+    Like BLEU, ROUGE-L collapses on this project's short-factual cases
+    (one-token reference vs prose output → precision is 1/N, F1
+    follows down) but clears its threshold on prose-vs-prose pairs.
     """
 
     name = "rouge"

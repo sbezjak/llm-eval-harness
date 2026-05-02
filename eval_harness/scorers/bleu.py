@@ -8,23 +8,30 @@ DEFAULT_THRESHOLD = 0.30
 
 
 class BleuScorer(Scorer):
-    """Sentence-level BLEU between `output` (hypothesis) and `expected` (reference).
+    """How much vocabulary do the model's answer and the expected answer share?
 
-    BLEU was designed for machine translation: how much of the model's
-    n-gram vocabulary appears in a human reference translation? It is an
-    *n-gram overlap* metric — it does not understand meaning, only counts
-    word sequences (with brevity penalty and clipping).
+    Explanation: BLEU counts how many short word-sequences
+    appear in both texts. An *n-gram* is just a run of n consecutive
+    words: "the cat" is a 2-gram, "the cat sat" is a 3-gram. BLEU
+    checks 1-grams, 2-grams, 3-grams, and 4-grams, then combines the
+    counts. Two corrections that matter:
 
-    Backed by `sacrebleu` (the production-standard implementation; what
-    translation papers report) rather than `nltk.translate.bleu_score`,
-    for reproducible tokenization across runs and machines. Score is
-    sacrebleu's 0-100 scale rescaled to [0, 1].
+    - *Brevity penalty* — if the model's answer is much shorter than
+      the reference, BLEU multiplies the score down. Otherwise a model
+      could just emit one well-chosen word and get high precision for
+      free.
+    - *Clipping* — if the model says "the the the" and "the" appears
+      once in the reference, only one of those gets credit.
+
+    BLEU does not understand meaning. It only counts word sequences. It
+    was invented in 2002 for machine translation, where the reference
+    is a full human-translated sentence. Score is `sacrebleu`'s 0-100
+    scale rescaled to [0, 1].
 
     Default threshold 0.30 follows translation-paper convention
-    ("decent translation"). For short factual Q&A this threshold is
-    expected to fail almost every prose-wrapped right answer — the same
-    structural failure mode as exact match (Finding 1). That is the
-    finding this scorer is here to demonstrate, not a bug to tune around.
+    ("decent translation"). On this project's short-factual corpus
+    BLEU collapses near zero on prose-wrapped answers like exact match
+    does, but lifts above threshold on prose-vs-prose pairs.
     """
 
     name = "bleu"

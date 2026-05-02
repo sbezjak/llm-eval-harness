@@ -20,10 +20,22 @@ async def test_unrelated_strings_score_low():
 
 
 async def test_prose_wrapped_short_answer_scores_below_threshold():
-    """ROUGE-L F1 on a 1-word reference vs a full sentence: recall is
-    1.0 (the reference word appears in the output), but precision is
-    1/N where N is the output length, so F1 collapses on prose-wrapping
-    just like BLEU and exact match.
+    """Pin ROUGE-L's main failure mode for this kind of dataset.
+
+    Same pair as the BLEU test above: model returns "The capital of
+    France is Paris.", expected is just "Paris". A human says PASS.
+    ROUGE-L is more forgiving than BLEU on short references because
+    of how it computes recall, but the F1 still collapses here:
+
+    - recall is 1.0 — the one word in the reference ("Paris") does
+      appear in the output;
+    - precision is 1/6 — only 1 of the output's 6 words is in the
+      reference;
+    - F1 (the harmonic mean) ends up around 0.29, well below the
+      0.40 threshold.
+
+    The test asserts FAIL on this pair, so the suite warns us if the
+    behavior ever changes (library update, tokenization change, etc.).
     """
     r = await RougeScorer().score(
         "What is the capital of France?",

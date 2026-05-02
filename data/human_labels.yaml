@@ -2,7 +2,7 @@
 #
 # Each entry pairs a real Ollama output (llama3.2, temp=0) with the
 # human verdict from reports/human_eval_v2.md. tests/test_calibration.py
-# uses these to measure scorer-vs-human agreement WITHOUT calling Ollama,
+# uses these to measure scorer-vs-human agreement without calling Ollama,
 # so calibration is deterministic and reproducible.
 #
 # Do NOT regenerate this file casually. The human verdicts are tied to

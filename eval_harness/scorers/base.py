@@ -28,9 +28,7 @@ class Scorer(ABC):
     choice given a single runtime context.
 
     Production frameworks (DeepEval, Ragas) expose dual sync+async
-    interfaces to avoid async contagion across many runtime contexts. We
-    don't — we have one runtime (pytest) and dual interfaces would double
-    the surface area for no gain here.
+    interfaces to avoid async contagion across many runtime contexts.
     """
 
     name: str

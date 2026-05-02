@@ -24,7 +24,7 @@ async def test_paraphrase_scores_higher_than_unrelated(scorer: SemanticScorer):
     Note we do NOT assert that the paraphrase passes the default 0.75
     threshold. Empirically `all-MiniLM-L6-v2` puts "The capital of France
     is Paris." vs "Paris" around ~0.72 — a useful signal that 0.75 may be
-    too strict for short bare references, and a tuning decision we want
+    too strict for short bare references, and a tuning decision should be
     driven by the real golden set, not by this unit test.
     """
     paraphrase = await scorer.score(

@@ -3,7 +3,7 @@ mean score stays within ±0.05 of an expected value.
 
 The hypothesis going in was that llama3.2 at temp=0 would be slightly
 noisy, with threshold-edge items (procedural_001 at 0.700) flipping
-PASS/FAIL run-to-run. We observed the opposite: 5 runs returned 5
+PASS/FAIL run-to-run. The opposite was observed: 5 runs returned 5
 identical 0.700s. The judge isn't noisy here — it is *stuck*, passing
 a hallucinated answer with the same exact score every time.
 

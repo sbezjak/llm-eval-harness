@@ -63,7 +63,7 @@ EXACT_MATCH_KNOWN_DISAGREEMENTS = {
     "reasoning_003": _EXACT_PROSE,
     # procedural_001 is intentionally absent: exact match correctly says
     # FAIL on the hallucinated output and the human also says FAIL. They
-    # agree (for different reasons, but they agree).
+    # agree.
 }
 
 SEMANTIC_KNOWN_DISAGREEMENTS = {
@@ -90,20 +90,17 @@ SEMANTIC_KNOWN_DISAGREEMENTS = {
     ),
 }
 
-# Finding 10: BLEU/ROUGE agreement with humans depends on the *shape of
-# the expected reference*, not the model output. On short bare references
-# ("Paris", "Ag", "8") n-gram overlap collapses and they fail like exact
-# match. On full-sentence references with overlapping vocabulary they
-# behave like a coarse paraphrase detector and agree with humans. The
-# disagreement maps below were initially populated with every prose-
-# wrapped item; the live run revealed 5 surprising agreements (definition_002
-# and reasoning_002 for both scorers, and definition_001 for ROUGE only)
-# which are now removed. See article.md Finding 10.
+# BLEU and ROUGE agree with humans when the expected reference is a
+# full prose sentence with vocabulary that overlaps the model's answer.
+# They disagree (say FAIL when the human says PASS) when the expected
+# reference is a short bare token like "Paris", "Ag", or "8" — there
+# aren't enough words to compute meaningful overlap against, so the
+# scores collapse near zero the same way exact match's verdict does.
 
 _BLEU_SHORT_REF = (
     "bleu wrongly says FAIL: expected reference is short (≤25 chars), so "
     "n-gram overlap with the prose-wrapped output is structurally near "
-    "zero — same failure mode as exact match on this corpus (Finding 10)"
+    "zero — same failure mode as exact match on this corpus"
 )
 BLEU_KNOWN_DISAGREEMENTS = {
     "factual_001": _BLEU_SHORT_REF,    # expected: "Ljubljana"
@@ -115,17 +112,16 @@ BLEU_KNOWN_DISAGREEMENTS = {
     "reasoning_003": _BLEU_SHORT_REF,  # mid-length expected vs 2000+ char output
     # definition_002, reasoning_002: expected is a full prose sentence
     # whose vocabulary overlaps the output enough that BLEU clears 0.30
-    # (the threshold) and agrees with humans. These are agreements, not
-    # documented disagreements — Finding 10.
-    # procedural_001: bleu says FAIL, human says FAIL — agree by accident
-    # (BLEU can't tell hallucination from paraphrase, but the hallucinated
-    # output happens to share little vocabulary with the expected text).
+    # and agrees with the human. These are agreements, not disagreements.
+    # procedural_001: BLEU says FAIL, human says FAIL — they agree by
+    # accident (the hallucinated output happens to share little
+    # vocabulary with the expected text).
 }
 
 _ROUGE_SHORT_REF = (
     "rouge wrongly says FAIL: expected reference is short, so ROUGE-L "
     "precision is 1/N over the long output and F1 falls below threshold "
-    "even when recall is high (Finding 10)"
+    "even when recall is high"
 )
 ROUGE_KNOWN_DISAGREEMENTS = {
     "factual_001": _ROUGE_SHORT_REF,
@@ -135,13 +131,12 @@ ROUGE_KNOWN_DISAGREEMENTS = {
     "reasoning_001": _ROUGE_SHORT_REF,
     "reasoning_003": _ROUGE_SHORT_REF,
     # definition_001 ("Artificial Intelligence") is short but ROUGE-L
-    # squeaks above 0.40 here because both the reference and the output
+    # squeaks above 0.40 because both the reference and the output
     # contain the full phrase verbatim — recall pulls F1 just over the
     # line. BLEU still fails it (4-gram overlap is too sparse).
     # definition_002, reasoning_002: prose-vs-prose with high vocabulary
-    # overlap; ROUGE clears 0.40 cleanly. Same agreement as BLEU on
-    # those two items — Finding 10.
-    # procedural_001: rouge FAIL, human FAIL — agree by accident.
+    # overlap; ROUGE clears 0.40 cleanly.
+    # procedural_001: ROUGE says FAIL, human says FAIL — agree by accident.
 }
 
 JUDGE_KNOWN_DISAGREEMENTS = {

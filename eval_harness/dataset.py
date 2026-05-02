@@ -32,7 +32,7 @@ def load_golden_set(path: Path | str = DEFAULT_GOLDEN_SET_PATH) -> list[GoldenIt
     """Load and validate the golden set.
 
     Validation is intentionally strict: a malformed dataset should fail loud
-    at load time, not silently produce nonsense scores at eval time.
+    at load time.
     """
     raw = yaml.safe_load(Path(path).read_text())
     if not isinstance(raw, list) or not raw:

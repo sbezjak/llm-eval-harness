@@ -9,18 +9,30 @@ DEFAULT_THRESHOLD = 0.75
 
 
 class SemanticScorer(Scorer):
-    """Cosine similarity between embeddings of `output` and `expected`.
+    """Does the model's answer *mean* the same thing as the expected answer?:
 
-    Embeddings come from a sentence-transformers model (default
-    `all-MiniLM-L6-v2`: small, fast, good enough for short factual answers).
-    The cosine score is mapped from [-1, 1] to [0, 1] by clamping negatives
-    to 0; for natural English text the raw value is almost always positive,
-    but the contract on `ScoreResult.score` is [0, 1] and we honor it.
+    1. A small neural network (the *embedding model*) turns each piece of
+       text into a list of 384 numbers — a coordinate in a 384-dimensional
+       "meaning space."
+    2. Texts with similar meanings end up at nearby coordinates because the
+       model was trained that way. "Paris" and "The capital of France is
+       Paris." sit close; "Paris" and "Water boils at 100°C" sit far.
+    3. We measure how close the two coordinates are with *cosine
+       similarity* (the angle between them, not the distance — same
+       direction = 1.0, perpendicular = 0.0).
+    4. If the similarity is above a threshold, the scorer says PASS.
 
-    `passed` is `score >= threshold`. The threshold is the knob you tune
-    against your own dataset — too high collapses into exact match, too low
-    lets unrelated answers through. 0.75 is a sensible starting point for
-    `all-MiniLM-L6-v2` on short answers; expect to tune.
+    None of this is a real understanding of meaning — it is pattern
+    matching over how words co-occur in the model's training data.
+
+    Two implementation details:
+
+    - The default model is `all-MiniLM-L6-v2`: small, fast, downloads
+      automatically the first time the scorer is constructed.
+    - The threshold is the knob you tune against your own dataset.
+      Too high collapses into exact match. Too low lets unrelated
+      answers through. 0.75 is a starting point — expect to revisit
+      it once you have real data.
     """
 
     name = "semantic"

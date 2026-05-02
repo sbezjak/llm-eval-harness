@@ -20,13 +20,20 @@ async def test_unrelated_strings_score_near_zero():
 
 
 async def test_prose_wrapped_short_answer_scores_low():
-    """The Finding 1 case: BLEU on a 1-word reference vs a full sentence
-    is structurally near-zero. Brevity penalty inverts (output longer
-    than reference) and 4-gram overlap with a 1-token reference is 0.
+    """Pin BLEU's main failure mode for this kind of dataset.
 
-    This is BLEU's headline failure mode on short factual Q&A — the
-    point of having BLEU in the suite is to demonstrate it on this
-    corpus, not to tune around it.
+    The model gives a perfectly correct answer ("The capital of France
+    is Paris.") but the expected value is just "Paris". A human grader
+    would mark this PASS. BLEU scores it near zero, because:
+
+    - the expected reference has 1 word, so there are no 2-grams,
+      3-grams, or 4-grams to match on at all;
+    - the brevity penalty further pushes the score down because the
+      output is much longer than the reference.
+
+    The test asserts the verdict is FAIL on this pair, locking that
+    behavior in. If BLEU ever started passing this case (because of a
+    library change or a tokenizer change), we want to be told.
     """
     r = await BleuScorer().score(
         "What is the capital of France?",

@@ -19,8 +19,7 @@ The trade-offs themselves follow.
 
 LLM evaluation is unfamiliar vocabulary for a lot of QA engineers, but
 most of the building blocks have direct analogues in traditional test
-practice. If you read the rest of this repo with this table in mind,
-nothing in it should feel exotic.
+practice.
 
 | LLM-eval concept (this repo) | What it is in traditional QA | Why the LLM version is different |
 |---|---|---|
@@ -39,8 +38,8 @@ nothing in it should feel exotic.
 | `eval_harness/providers/` | The boundary where you mock external services in a test (HTTP client, DB driver) | `respx` mocks at the HTTP layer just like in any FastAPI/httpx project — nothing LLM-specific about the technique |
 
 The takeaway: LLM evaluation is software testing with two extra
-constraints — (1) the output is non-deterministic prose, so equality
-won't carry you, and (2) the *scorer itself* is fallible and has to be
+constraints — (1) the output is non-deterministic prose
+and (2) the *scorer itself* is fallible and has to be
 calibrated against humans. Everything else is pytest.
 
 ---

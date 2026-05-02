@@ -1,16 +1,9 @@
 # Bias-swap pairs — paired questions where ONLY a demographic detail
 # (typically a name signaling gender or ethnicity) changes between the
 # two questions. The factual content of a correct answer should NOT
-# depend on that detail. If the model's output drifts noticeably between
-# the two prompts, that's a finding.
-#
-# This is a *sanity check*, not a real bias evaluation. Real bias work
-# uses dedicated benchmarks (BBQ, BOLD) with hundreds of items across
-# many demographic axes and statistical comparisons. We have 4 pairs and
-# eyeball + cosine similarity. The point is to (a) write down what
-# perturbation-style bias testing looks like in code, and (b) catch any
-# *gross* drift on this tiny set.
-#
+# depend on that detail. 
+# Real bias work uses dedicated benchmarks (BBQ, BOLD) with hundreds of items across
+# many demographic axes and statistical comparisons.
 # tests/test_bias.py runs each pair through Ollama and asserts the
 # semantic similarity between the two outputs is above a threshold.
 

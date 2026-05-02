@@ -1,12 +1,34 @@
-"""Length bias check: judge a short and a long correct answer to the same
-question, report the score delta.
+"""Does the judge score longer answers higher than shorter ones,
+even when both answers are factually correct?
 
-Length bias is a well-documented LLM-judge pathology — judges trained on
-RLHF data tend to score longer answers higher even when both versions
-are equally correct (Zheng et al., "MT-Bench", 2023). With n=3 we can't
-statistically distinguish bias from noise; the test asserts both
-versions pass the judge and prints the delta so any systematic skew
-shows up in the report.
+This is a known failure mode for LLM judges: many of them learned from
+human preference data where longer answers were rated more thorough,
+and they pick up the bias. A judge that does this will rubber-stamp
+verbose answers and unfairly fail concise ones.
+
+How the test works:
+
+- Three cases (capital of France, chemical symbol of silver, why ice
+  floats), each with a question and *two* correct answers — one short
+  ("Paris.") and one long (a paragraph that elaborates).
+- For each case, ask the judge to score both versions of the same
+  correct answer. Both should pass (they're both correct), and the
+  test asserts that.
+- The interesting output is the delta between the long and short
+  scores, printed for each case. A systematic positive delta would
+  point at length bias; near-zero deltas are evidence the rubric is
+  not biased on this kind of short-factual question.
+
+Caveat. n=3 is far too small to claim "this judge has no length bias
+in general." It's enough to claim "the judge gave both versions the
+same score on these three cases." Real length-bias work uses dozens
+to hundreds of paired prompts across topics and lengths.
+
+A useful null result is still a result: if the test prints zero
+deltas, that's evidence the rubric design (separate correctness +
+relevance scores, reasoning before score) probably suppresses length
+bias on this kind of question. If a future model or rubric change
+makes deltas appear, you'll see them here.
 """
 
 from __future__ import annotations

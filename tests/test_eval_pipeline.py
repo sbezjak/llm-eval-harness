@@ -187,9 +187,7 @@ SEMANTIC_VS_JUDGE_DISAGREEMENTS: dict[str, str] = {
     [i.id for i in GOLDEN_ITEMS], SEMANTIC_VS_JUDGE_DISAGREEMENTS,
 ))
 async def test_scorers_agree_on_verdict(item_id: str):
-    """The S4 centerpiece: do the two threshold-based scorers agree on
-    pass/fail per item?
-
+    """
     Exact match is the strict baseline — it fails on essentially every
     prose-wrapped answer, so we deliberately exclude it from the agreement
     check. The interesting question is whether the two *useful* scorers
