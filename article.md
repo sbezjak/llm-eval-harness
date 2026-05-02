@@ -642,3 +642,106 @@ that probably suppressed it are written down." Production move: if you
 adopt this rubric, watch length bias re-appear on long-form questions.
 
 ---
+
+## Finding 10 — BLEU and ROUGE failure depends on reference shape, not output
+
+**Session:** S6.5 (BleuScorer + RougeScorer added to the calibration matrix)
+
+**What:** Added `BleuScorer` (sacrebleu, threshold 0.30) and `RougeScorer`
+(rouge-score, ROUGE-L F1, threshold 0.40) to the suite. Both are n-gram
+overlap metrics — they count how much vocabulary `output` and `expected`
+share, with various corrections (BLEU has brevity penalty + clipping;
+ROUGE-L uses longest common subsequence and reports F1). Neither
+understands meaning. Extended `tests/test_calibration.py` with parametrized
+calibration rows for both scorers across the V3 frozen corpus.
+
+**The wrong prediction.** I initially marked every prose-wrapped item
+(9 of 10) as `xfail(strict=True)` for both scorers, on the model that
+"n-gram metrics fail on prose-wrapped right answers just like exact
+match (Finding 1)." First live run: 5 of those xfails came back as
+`Failed` instead of `XFailed` — the strict-xpass signal that the
+prediction was wrong. The 5 surprises:
+
+| scorer  | item            | score | threshold | verdict    |
+|---------|-----------------|------:|----------:|------------|
+| bleu    | definition_002  | 0.384 | 0.30      | PASS       |
+| bleu    | reasoning_002   | 0.314 | 0.30      | PASS       |
+| rouge   | definition_001  | 0.444 | 0.40      | PASS       |
+| rouge   | definition_002  | 0.618 | 0.40      | PASS       |
+| rouge   | reasoning_002   | 0.511 | 0.40      | PASS       |
+
+**The actual pattern (Finding 10).** BLEU and ROUGE agreement with
+humans on this corpus is a function of the **shape of the expected
+reference**, not the model's output:
+
+- *Short bare reference* (≤ ~25 chars: "Paris", "Ag", "8", "Ljubljana",
+  "South America"): both scorers fail. n-gram overlap is structurally
+  near zero — a 1-token reference has no 4-grams for BLEU to match;
+  ROUGE-L precision collapses to `1/N` over the long output. Same
+  failure mode as exact match.
+- *Full-sentence reference* with overlapping vocabulary
+  (`definition_002`, `reasoning_002`): both scorers clear threshold and
+  agree with humans. The reference and the output are prose in the same
+  register; the question "how much vocabulary do they share?" happens
+  to track human judgment of *correctness* on these items, not because
+  the scorer understands meaning, but because matching content
+  vocabulary is correlated with correctness when both texts are prose.
+- *Mid-length reference, very long output* (`reasoning_001`,
+  `reasoning_003`: outputs run 600–2200 chars against a 60–150 char
+  reference): both scorers fail because precision is dominated by
+  unmatched output tokens.
+- *Short-but-distinctive phrase reference* (`definition_001`:
+  "Artificial Intelligence"): ROUGE-L squeaks above 0.40 because both
+  texts contain the exact phrase verbatim — recall pulls F1 across the
+  line. BLEU still fails because 4-gram overlap on a 2-word reference
+  is too sparse. The scorers split on a single item, exposing their
+  precision/recall asymmetry.
+
+**Why the wrong prediction was instructive.** The 5 red Faileds were
+the suite refusing to lie about a sloppy mental model. A non-strict
+xfail would have hidden them as quiet XPASSes and the writeup would
+have said "BLEU/ROUGE share exact match's failure mode" — true on 7
+items, wrong on 3. The strict variant forced a closer reading of the
+corpus, and the closer reading produced a sharper finding: the failure
+isn't about the metric in the abstract, it's about the *match between
+metric and reference shape*.
+
+**Why this matters beyond project 1.**
+
+1. **Picking a metric is partly a dataset-design decision.** "Should I
+   use BLEU?" depends on what your reference looks like. On a TriviaQA-
+   shaped golden set (short answers), BLEU and ROUGE are exact-match in
+   a fancier hat. On a CNN/DailyMail-shaped golden set (paragraph
+   summaries), BLEU and ROUGE are at least coarsely meaningful. The
+   metric isn't "good" or "bad" — it's matched or mismatched.
+2. **Forward-pointer to project 2 (RAG).** RAG outputs are paragraphs
+   answered against paragraph-shaped reference contexts. ROUGE-L on
+   RAG-vs-reference is a reasonable starting metric in a way that
+   ROUGE-L on `"Paris"` vs `"The capital of France is Paris."` is not.
+   This finding pre-justifies using ROUGE-L as a baseline metric in
+   project 2 (and pre-justifies *not* relying on it for short-answer
+   QA there).
+3. **The xfail-strict contract worked.** This is the second time the
+   contract has surfaced something the author missed (first was
+   Finding 8 — the judge being stuck rather than noisy at the
+   threshold). The pattern keeps paying for itself; both findings would
+   have been silently lost under non-strict skips or assertion-only
+   suites.
+
+**What's still in the failure-mode matrix.** Both BLEU and ROUGE have
+**❌** on the short-reference rows (parallel to exact match's column),
+**✅** on the prose-reference rows where vocabulary overlaps, and **—**
+(not applicable / accidentally agree) on `procedural_001` (hallucinated
+output, low overlap, both say FAIL by accident). See
+`docs/scoring-tradeoffs.md` for the updated matrix.
+
+**Limit of the finding.** Three prose-vs-prose pairs out of 10 items is
+not enough to claim "ROUGE-L agrees with humans on prose references in
+general." It's enough to claim "ROUGE-L agreed with humans on these 3
+items where reference and output were both prose with overlapping
+vocabulary." The structural argument — that n-gram overlap *can* track
+correctness on this shape — is the part to keep; the agreement *rate*
+on prose references is a measurement that needs a much larger corpus
+to be portable.
+
+---

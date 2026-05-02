@@ -2,25 +2,30 @@
 
 Pytest-based evaluation harness for LLM systems. Targets a local Ollama
 (`llama3.2`) backend. Explores how to score non-deterministic LLM output
-three ways — exact match, semantic similarity, and LLM-as-judge — and
-where each scorer fails.
+five ways — exact match, BLEU, ROUGE-L, semantic similarity, and
+LLM-as-judge — and where each scorer fails.
 
-The point of this repo is not the code. It's the **9 findings** in
+The point of this repo is not the code. It's the **10 findings** in
 `article.md` about how LLM evaluation actually behaves: where each
 scorer is wrong, when scorers disagree, and what those disagreements
 teach you about scoring non-deterministic output.
+
+For a public-facing companion that maps every concept to a
+traditional-QA analogue and lays out the per-scorer failure-mode
+matrix, see `docs/scoring-tradeoffs.md`.
 
 ## What's in here
 
 | Path | Purpose |
 |---|---|
-| `eval_harness/scorers/` | The 3 scorers: `ExactMatchScorer`, `SemanticScorer`, `LLMJudgeScorer` |
+| `eval_harness/scorers/` | The 5 scorers: `ExactMatchScorer`, `BleuScorer`, `RougeScorer`, `SemanticScorer`, `LLMJudgeScorer` |
 | `eval_harness/providers/` | `OllamaProvider` HTTP adapter |
 | `data/golden_set.yaml` | 10 hand-written question/expected pairs (the eval inputs) |
 | `data/human_labels.yaml` | 10 frozen Ollama outputs + author's human verdict per item (calibration corpus) |
 | `data/bias_pairs.yaml` | 4 paired questions for the bias-swap sanity check |
 | `tests/` | The whole story (see below) |
-| `article.md` | The 9 findings — read this if you read nothing else |
+| `article.md` | The 10 findings — read this if you read nothing else (private; gitignored in S6) |
+| `docs/scoring-tradeoffs.md` | Public companion: QA-translation table, failure-mode matrix, deliberate trade-offs |
 | `reports/human_eval_v2.md` | Hand-graded results from the V2 live run |
 | `PLAN.md` | Scope, session arc, and what's deliberately out of scope |
 
@@ -85,6 +90,9 @@ uv run pytest tests/test_bias.py -m ollama -v -s
 # Finding 9 — null result on length bias
 uv run pytest tests/test_length_bias.py -m ollama -v -s
 
+# Finding 10 — BLEU/ROUGE failure depends on reference shape, not output
+uv run pytest tests/test_calibration.py::test_bleu_calibration tests/test_calibration.py::test_rouge_calibration -v
+
 # The S4 centerpiece — scorers running side-by-side, where they disagree
 uv run pytest tests/test_eval_pipeline.py::test_scorers_agree_on_verdict -m ollama -v -s
 ```
@@ -110,7 +118,7 @@ If an `xfail` ever flips to `XPASS`, the suite breaks on purpose —
 that means a documented finding has silently changed and we want to
 re-investigate, not lose the finding.
 
-## How the 9 findings map to tests
+## How the 10 findings map to tests
 
 | Finding | What it shows | Test |
 |---|---|---|
@@ -123,6 +131,31 @@ re-investigate, not lose the finding.
 | 7 | Bias-swap drift on one of four pairs | `test_bias.py` |
 | 8 | Judge isn't noisy at threshold — it's stuck at 0.700 | `test_judge_variance.py` |
 | 9 | No detectable length bias on llama3.2 (a useful null) | `test_length_bias.py` |
+| 10 | BLEU/ROUGE failure depends on reference shape, not output | `test_calibration.py::test_bleu_calibration`, `test_rouge_calibration` |
+
+## A note on BLEU and ROUGE
+
+BLEU and ROUGE are vocabulary-overlap metrics designed for translation
+and summarization respectively — they count how many word-sequences
+the model's output shares with a reference text. They are added in
+S6.5 as the fourth and fifth scorers in the suite.
+
+The headline result (Finding 10): on this corpus, both metrics fail on
+the short-bare-reference items the same way exact match fails (`Paris`,
+`Ag`, `8`), and both metrics *succeed* on the prose-vs-prose items
+where reference and output share vocabulary in the same order
+(`definition_002`, `reasoning_002`). Whether BLEU/ROUGE is a useful
+metric on a given corpus depends on the **shape of the expected
+references**, not on the metric's intrinsic quality. This pre-justifies
+ROUGE-L as a reasonable starting metric for the RAG project (where
+references are paragraphs) and pre-justifies *not* relying on it for
+short-answer factual QA.
+
+The xfail-strict mechanism caught a wrong prediction here: the initial
+BLEU/ROUGE disagreement maps were over-broad and 5 calibration cases
+went red on the first run as strict-XPASSes. Re-reading the corpus
+sharpened the finding from "BLEU/ROUGE share exact match's failure
+mode" to the dataset-shape claim above. See `article.md` Finding 10.
 
 ## The thing that surprised me most
 
