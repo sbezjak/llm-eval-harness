@@ -1,5 +1,9 @@
 # llm-eval-harness
 
+Live reports: [test report](https://sbezjak.github.io/llm-eval-harness/reports/report.html) · [coverage](https://sbezjak.github.io/llm-eval-harness/reports/coverage/)
+
+Built as project 1 of 5 exploring AI/LLM testing. A writeup is in progress.
+
 A pytest-based evaluation harness for LLM systems. It runs a fixed golden set
 through a local model, scores the outputs with five different scorers, and
 encodes each scorer's known limitations as `xfail(strict=True)` tests so
@@ -31,7 +35,7 @@ class Scorer:
 ```
 
 Findings from the calibration run (95 passed, 51 xfailed, 98% coverage) are
-documented as executable tests — see `docs/background.md` for the
+documented as executable tests, see `docs/background.md` for the
 per-scorer failure-mode matrix and a plain-language walkthrough.
 
 ## Architecture
@@ -61,9 +65,9 @@ Architectural invariants:
 - HTTP I/O lives only in `providers/`. Tests mock at this boundary with
   `respx`. Scorers are pure and unit-testable without network access.
 - The package layout is pinned in `pyproject.toml`
-  (`packages = ["eval_harness"]`) — do not relocate.
-- `fastapi` and `httpx` are declared dependencies in anticipation of an
-  HTTP surface; no such code exists yet.
+  (`packages = ["eval_harness"]`), do not relocate.
+- `httpx` is the transport used by `OllamaProvider` and mocked by `respx`.
+  No FastAPI surface exists or is planned for this project.
 
 ## Requirements
 
@@ -136,12 +140,12 @@ Ten findings are encoded as tests. Use them as entry points into the codebase.
 |---|---|---|
 | 1 | Exact match fails on prose-wrapped answers | `test_calibration.py::test_exact_match_calibration` |
 | 2 | A 0.75 cosine threshold rejects right answers that score 0.725 | `test_semantic_scorer.py` |
-| 3 | Semantic-similarity score distributions for right/wrong answers overlap — no separating threshold | `test_calibration.py::test_semantic_calibration` |
+| 3 | Semantic-similarity score distributions for right/wrong answers overlap, no separating threshold | `test_calibration.py::test_semantic_calibration` |
 | 4 | Self-grading bias: the judge passes the model's own hallucinations | `test_calibration.py::test_judge_calibration` |
 | 5 | The judge's written reasoning can contradict its numeric score | `test_eval_pipeline.py` (`-s` to read prints) |
 | 6 | `xfail(strict=True)` turns the suite into a tripwire for silent scorer drift | every `xfail` in `test_calibration.py` |
 | 7 | Bias-swap (David vs. Priya) detects output drift on 1 of 4 paired prompts | `test_bias.py` |
-| 8 | Judge variance is zero at the threshold — stuck at 0.700 across 5 runs | `test_judge_variance.py` |
+| 8 | Judge variance is zero at the threshold, stuck at 0.700 across 5 runs | `test_judge_variance.py` |
 | 9 | No detectable length bias on `llama3.2` (null result) | `test_length_bias.py` |
 | 10 | BLEU/ROUGE viability depends on reference-text shape, not the metric | `test_calibration.py::{test_bleu_calibration,test_rouge_calibration}` |
 
@@ -159,6 +163,6 @@ Ruff is configured for `line-length = 100` and `target-version = "py311"`.
 
 ## Further reading
 
-- `docs/background.md` — LLM-eval concepts in plain pytest words, a
+- `docs/background.md`, LLM-eval concepts in plain pytest words, a
   per-scorer failure-mode matrix, and the deliberate trade-offs.
-- `CLAUDE.md` — guidance for AI assistants working in this repo.
+- `CLAUDE.md`, guidance for AI assistants working in this repo.
