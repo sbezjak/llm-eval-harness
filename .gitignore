@@ -25,10 +25,19 @@ htmlcov/
 dist/
 build/
 
-# Generated test reports — keep the directory and scorer_comparison.md, ignore the rest
+# Generated test reports — keep the directory + hand-graded human evals + the
+# hosted GitHub Pages artifacts (report.html + coverage/), ignore the rest
 reports/*
 !reports/.gitkeep
 !reports/scorer_comparison.md
+!reports/human_eval_v1.md
+!reports/human_eval_v2.md
+!reports/report.html
+!reports/coverage/
+!reports/coverage/**
 
 # Private working notes (not for the public-facing repo)
 article.md
+article_beta.md
+article_v3.md
+PLAN.md

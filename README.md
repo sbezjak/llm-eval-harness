@@ -1,112 +1,109 @@
 # llm-eval-harness
 
-Pytest-based evaluation harness for LLM systems. Targets a local Ollama
-(`llama3.2`) backend. Explores how to score non-deterministic LLM output
-five ways — exact match, BLEU, ROUGE-L, semantic similarity, and
-LLM-as-judge — and where each scorer fails.
+A pytest-based evaluation harness for LLM systems. It runs a fixed golden set
+through a local model, scores the outputs with five different scorers, and
+encodes each scorer's known limitations as `xfail(strict=True)` tests so
+silent regressions break the build.
 
-The point of this repo is not the code. It's the **10 findings** in
-`article.md` about how LLM evaluation actually behaves: where each
-scorer is wrong, when scorers disagree, and what those disagreements
-teach you about scoring non-deterministic output.
+The harness targets [Ollama](https://ollama.com/) at `localhost:11434` as the
+model backend. Python 3.11+, managed with [`uv`](https://docs.astral.sh/uv/).
 
-For a public-facing companion that maps every concept to a
-traditional-QA analogue and lays out the per-scorer failure-mode
-matrix, see `docs/scoring-tradeoffs.md`.
+## Overview
 
-## What's in here
+The project answers one question: *how do you assert correctness on LLM
+output when there is no canonical "right" wording?* Five scorers are
+implemented and calibrated against a 10-item golden set with human-graded
+labels:
 
-| Path | Purpose |
+| Scorer | Signal |
 |---|---|
-| `eval_harness/scorers/` | The 5 scorers: `ExactMatchScorer`, `BleuScorer`, `RougeScorer`, `SemanticScorer`, `LLMJudgeScorer` |
-| `eval_harness/providers/` | `OllamaProvider` HTTP adapter |
-| `data/golden_set.yaml` | 10 hand-written question/expected pairs (the eval inputs) |
-| `data/human_labels.yaml` | 10 frozen Ollama outputs + author's human verdict per item (calibration corpus) |
-| `data/bias_pairs.yaml` | 4 paired questions for the bias-swap sanity check |
-| `tests/` | The whole story (see below) |
-| `article.md` | The 10 findings — read this if you read nothing else (private; gitignored in S6) |
-| `docs/scoring-tradeoffs.md` | Public companion: QA-translation table, failure-mode matrix, deliberate trade-offs |
-| `reports/human_eval_v2.md` | Hand-graded results from the V2 live run |
-| `PLAN.md` | Scope, session arc, and what's deliberately out of scope |
+| `ExactMatchScorer` | `output == expected` |
+| `BleuScorer` | `sacrebleu` n-gram overlap (BLEU-4) |
+| `RougeScorer` | `rouge-score` ROUGE-L F1 |
+| `SemanticScorer` | `sentence-transformers` cosine similarity |
+| `LLMJudgeScorer` | second Ollama call with a hybrid correctness/relevance rubric |
 
-## Setup
+Each scorer implements the same async contract:
 
-You need [`uv`](https://docs.astral.sh/uv/) and (for the live tests)
-[Ollama](https://ollama.com/) running locally with `llama3.2` pulled.
-
-```bash
-# Install deps
-uv sync
-
-# Pull the model (one time, ~2GB)
-ollama pull llama3.2
-
-# Verify Ollama is up
-curl -sf http://localhost:11434/api/tags | head
+```python
+class Scorer:
+    async def score(self, question: str, output: str, expected: str) -> ScoreResult: ...
 ```
 
-## Run the tests
+Findings from the calibration run (95 passed, 51 xfailed, 98% coverage) are
+documented as executable tests — see `docs/background.md` for the
+per-scorer failure-mode matrix and a plain-language walkthrough.
 
-Two markers split the suite:
+## Architecture
 
-- `mocked` — fast, no network. Mocks Ollama with `respx`. Runs in ~10s.
-- `ollama` — hits a real local Ollama. Slow (~10 minutes for the full set).
-
-```bash
-# Fast: scorer unit tests, dataset checks, calibration on frozen outputs
-uv run pytest -m "not ollama"
-
-# Slow: live model + judge calls
-uv run pytest -m ollama
-
-# Everything
-uv run pytest
+```
+eval_harness/
+├── providers/       # backend adapters; only place that issues HTTP
+│   └── ollama.py
+├── scorers/         # pure (question, output, expected) -> ScoreResult
+│   ├── exact_match.py
+│   ├── bleu.py
+│   ├── rouge.py
+│   ├── semantic.py
+│   └── llm_judge.py
+└── dataset.py       # YAML loader + pydantic validation
+docs/
+└── background.md       # QA-engineer walkthrough, failure-mode matrix, trade-offs
+data/
+├── golden_set.yaml      # 10 question/expected pairs
+├── human_labels.yaml    # frozen model outputs + human PASS/FAIL grades
+└── bias_pairs.yaml      # name-swap pairs for bias drift checks
+tests/                   # mocked + ollama-marked test suites
 ```
 
-Generate an HTML report (the kind of artifact a portfolio reviewer wants):
+Architectural invariants:
+
+- HTTP I/O lives only in `providers/`. Tests mock at this boundary with
+  `respx`. Scorers are pure and unit-testable without network access.
+- The package layout is pinned in `pyproject.toml`
+  (`packages = ["eval_harness"]`) — do not relocate.
+- `fastapi` and `httpx` are declared dependencies in anticipation of an
+  HTTP surface; no such code exists yet.
+
+## Requirements
+
+- Python ≥ 3.11
+- `uv` for environment management
+- Ollama running at `localhost:11434` with the `llama3.2` model pulled
+  (only required for `@pytest.mark.ollama` tests)
+
+## Installation
 
 ```bash
-uv run pytest --html=reports/run.html --self-contained-html
+uv sync                       # installs runtime + dev dependencies
+ollama pull llama3.2          # ~2 GB, one-time
+curl -sf http://localhost:11434/api/tags | head    # health check
 ```
 
-## Run a specific test if you want to see one finding
+## Testing
 
-Each finding in `article.md` has a corresponding test. Pick one:
+The suite is split by two custom markers (defined in `pyproject.toml`):
+
+| Marker | Purpose | Runtime |
+|---|---|---|
+| `mocked` | `respx`-mocked Ollama; scorer logic, dataset validation, calibration on frozen outputs | ~10 s |
+| `ollama` | live model + judge calls | ~7 min |
+
+`asyncio_mode = "auto"` is set, so async tests do not need
+`@pytest.mark.asyncio`.
 
 ```bash
-# Finding 1 — exact match fails on prose-wrapped answers
-uv run pytest tests/test_calibration.py::test_exact_match_calibration -v
-
-# Finding 3 — semantic similarity fails on shape mismatch (e.g. factual_004)
-uv run pytest tests/test_calibration.py::test_semantic_calibration -v
-
-# Finding 4 + 8 — judge passes a hallucinated answer, AND it's stuck at 0.700
-uv run pytest tests/test_calibration.py::test_judge_calibration -m ollama -v
-uv run pytest tests/test_judge_variance.py -m ollama -v -s
-
-# Finding 7 — bias-swap drift (David vs Priya)
-uv run pytest tests/test_bias.py -m ollama -v -s
-
-# Finding 9 — null result on length bias
-uv run pytest tests/test_length_bias.py -m ollama -v -s
-
-# Finding 10 — BLEU/ROUGE failure depends on reference shape, not output
-uv run pytest tests/test_calibration.py::test_bleu_calibration tests/test_calibration.py::test_rouge_calibration -v
-
-# The S4 centerpiece — scorers running side-by-side, where they disagree
-uv run pytest tests/test_eval_pipeline.py::test_scorers_agree_on_verdict -m ollama -v -s
+uv run pytest                          # full suite
+uv run pytest -m "not ollama"          # fast path, no network
+uv run pytest -m ollama                # live model only
+uv run pytest -m mocked                # mocked unit tests only
+uv run pytest tests/path/to/test.py::test_name
 ```
 
-The `-s` flag is important on the live tests — it streams the per-item
-print statements (question, expected, model output, scorer scores,
-judge reasoning) to stdout. That's where most of the *evidence* lives;
-the assertions are short.
+### `xfail(strict=True)` as executable documentation
 
-## Reading the test output
-
-Tests with `xfail(strict=True)` markers are not failures — they're
-**documented disagreements**. Each one's `reason=` says in plain English
-what the scorer does wrong on that item.
+Every known scorer limitation is encoded as an `xfail(strict=True)` test
+with a `reason` that names the finding. Example:
 
 ```
 test_calibration.py::test_exact_match_calibration[factual_001]  XFAIL
@@ -114,69 +111,54 @@ test_calibration.py::test_exact_match_calibration[factual_001]  XFAIL
   wrapped in conversational prose, so output != expected (Finding 1)
 ```
 
-If an `xfail` ever flips to `XPASS`, the suite breaks on purpose —
-that means a documented finding has silently changed and we want to
-re-investigate, not lose the finding.
+If a scorer ever silently *stops* failing on that item, strict mode flips
+the test red and forces investigation. The xfail set is the spec for what
+the scorers are known to get wrong.
 
-## How the 10 findings map to tests
+### Coverage and HTML report
 
-| Finding | What it shows | Test |
+```bash
+uv run pytest \
+  --html=reports/report.html --self-contained-html \
+  --cov=eval_harness --cov-report=html:reports/coverage
+```
+
+Hosted artifacts from the latest run:
+
+- Pytest HTML: https://sbezjak.github.io/llm-eval-harness/reports/report.html
+- Coverage:    https://sbezjak.github.io/llm-eval-harness/reports/coverage/
+
+## Findings
+
+Ten findings are encoded as tests. Use them as entry points into the codebase.
+
+| # | Finding | Test |
 |---|---|---|
-| 1 | Exact match fails on every prose-wrapped right answer | `test_calibration.py::test_exact_match_calibration` |
-| 2 | A canonical paraphrase scores 0.725 — below a "reasonable" 0.75 | `test_semantic_scorer.py` |
-| 3 | Semantic similarity is not measuring correctness | `test_calibration.py::test_semantic_calibration` |
-| 4 | Self-grading bias passes the only wrong answer | `test_calibration.py::test_judge_calibration` |
-| 5 | Judge reasoning text decouples from judge score | `test_eval_pipeline.py` (read the printed reasoning) |
-| 6 | Calibration as a contract: xfail-as-documentation | the calibration tests, their xfail markers |
-| 7 | Bias-swap drift on one of four pairs | `test_bias.py` |
-| 8 | Judge isn't noisy at threshold — it's stuck at 0.700 | `test_judge_variance.py` |
-| 9 | No detectable length bias on llama3.2 (a useful null) | `test_length_bias.py` |
-| 10 | BLEU/ROUGE failure depends on reference shape, not output | `test_calibration.py::test_bleu_calibration`, `test_rouge_calibration` |
+| 1 | Exact match fails on prose-wrapped answers | `test_calibration.py::test_exact_match_calibration` |
+| 2 | A 0.75 cosine threshold rejects right answers that score 0.725 | `test_semantic_scorer.py` |
+| 3 | Semantic-similarity score distributions for right/wrong answers overlap — no separating threshold | `test_calibration.py::test_semantic_calibration` |
+| 4 | Self-grading bias: the judge passes the model's own hallucinations | `test_calibration.py::test_judge_calibration` |
+| 5 | The judge's written reasoning can contradict its numeric score | `test_eval_pipeline.py` (`-s` to read prints) |
+| 6 | `xfail(strict=True)` turns the suite into a tripwire for silent scorer drift | every `xfail` in `test_calibration.py` |
+| 7 | Bias-swap (David vs. Priya) detects output drift on 1 of 4 paired prompts | `test_bias.py` |
+| 8 | Judge variance is zero at the threshold — stuck at 0.700 across 5 runs | `test_judge_variance.py` |
+| 9 | No detectable length bias on `llama3.2` (null result) | `test_length_bias.py` |
+| 10 | BLEU/ROUGE viability depends on reference-text shape, not the metric | `test_calibration.py::{test_bleu_calibration,test_rouge_calibration}` |
 
-## A note on BLEU and ROUGE
+Pass `-s` on the `ollama`-marked tests to stream per-item evidence
+(question, model output, per-scorer scores, judge reasoning) to stdout.
 
-BLEU and ROUGE are vocabulary-overlap metrics designed for translation
-and summarization respectively — they count how many word-sequences
-the model's output shares with a reference text. They are added in
-S6.5 as the fourth and fifth scorers in the suite.
-
-The headline result (Finding 10): on this corpus, both metrics fail on
-the short-bare-reference items the same way exact match fails (`Paris`,
-`Ag`, `8`), and both metrics *succeed* on the prose-vs-prose items
-where reference and output share vocabulary in the same order
-(`definition_002`, `reasoning_002`). Whether BLEU/ROUGE is a useful
-metric on a given corpus depends on the **shape of the expected
-references**, not on the metric's intrinsic quality. This pre-justifies
-ROUGE-L as a reasonable starting metric for the RAG project (where
-references are paragraphs) and pre-justifies *not* relying on it for
-short-answer factual QA.
-
-The xfail-strict mechanism caught a wrong prediction here: the initial
-BLEU/ROUGE disagreement maps were over-broad and 5 calibration cases
-went red on the first run as strict-XPASSes. Re-reading the corpus
-sharpened the finding from "BLEU/ROUGE share exact match's failure
-mode" to the dataset-shape claim above. See `article.md` Finding 10.
-
-## The thing that surprised me most
-
-Finding 8. I expected the judge's score on the threshold-edge item
-(procedural_001 — Finding 4) to flicker between PASS and FAIL across
-runs from temperature noise. Instead, 5 runs returned 5 identical 0.700.
-The judge isn't flaky on its own hallucination — it's *consistently
-wrong with the same exact score every single time*. Worse than
-flakiness, because there's nothing for CI to catch. See `article.md`
-Finding 8 for the production implications.
-
-## Lint, format, etc.
+## Development
 
 ```bash
 uv run ruff check .
 uv run ruff format .
 ```
 
-## Out of scope (and why)
+Ruff is configured for `line-length = 100` and `target-version = "py311"`.
 
-See `PLAN.md`. Short version: this repo is project 1 of 5; cross-model
-benchmarking, RAG, red-team prompts, and agent testing each get their
-own repo. Anything that would dilute "how do you score
-non-deterministic LLM output" was deliberately cut.
+## Further reading
+
+- `docs/background.md` — LLM-eval concepts in plain pytest words, a
+  per-scorer failure-mode matrix, and the deliberate trade-offs.
+- `CLAUDE.md` — guidance for AI assistants working in this repo.

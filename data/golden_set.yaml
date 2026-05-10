@@ -1,9 +1,9 @@
 # Golden set — 10 hand-written items.
 #
 # Fields:
-#   id          stable handle, format: <category>_<3-digit number>.
-#   question    what we ask the model.
-#   expected    the SHORTEST fully-correct reference answer. Not prose.
+#   id          stable handle, format: <category>_<3-digit number>
+#   question    what we ask the model
+#   expected    the SHORTEST fully-correct reference answer 
 #   difficulty  easy | medium | hard
 #   category    factual | definition | reasoning | procedural
 #
