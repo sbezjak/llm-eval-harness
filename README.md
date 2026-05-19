@@ -12,6 +12,29 @@ silent regressions break the build.
 The harness targets [Ollama](https://ollama.com/) at `localhost:11434` as the
 model backend. Python 3.11+, managed with [`uv`](https://docs.astral.sh/uv/).
 
+## Quickstart
+
+```bash
+uv sync                                # install runtime + dev deps
+ollama pull llama3.2                   # ~2 GB, one-time (only for live tests)
+
+uv run pytest -m "not ollama"          # fast path, no network (~10 s)
+uv run pytest -m ollama                # live model only (~7 min)
+uv run pytest                          # full suite
+uv run pytest tests/path/to/test.py::test_name
+
+uv run ruff check .                    # lint
+uv run ruff format .                   # format
+```
+
+HTML test report + coverage:
+
+```bash
+uv run pytest \
+  --html=reports/report.html --self-contained-html \
+  --cov=eval_harness --cov-report=html:reports/coverage
+```
+
 ## Overview
 
 The project answers one question: *how do you assert correctness on LLM
@@ -35,8 +58,8 @@ class Scorer:
 ```
 
 Findings from the calibration run (95 passed, 51 xfailed, 98% coverage) are
-documented as executable tests, see `docs/background.md` for the
-per-scorer failure-mode matrix and a plain-language walkthrough.
+documented as executable tests, see `docs/background.md` for the per-scorer
+failure-mode matrix and a plain-language walkthrough.
 
 ## Architecture
 
@@ -51,38 +74,16 @@ eval_harness/
 │   ├── semantic.py
 │   └── llm_judge.py
 └── dataset.py       # YAML loader + pydantic validation
-docs/
-└── background.md       # QA-engineer walkthrough, failure-mode matrix, trade-offs
 data/
 ├── golden_set.yaml      # 10 question/expected pairs
 ├── human_labels.yaml    # frozen model outputs + human PASS/FAIL grades
 └── bias_pairs.yaml      # name-swap pairs for bias drift checks
+docs/background.md       # QA-engineer walkthrough, failure-mode matrix
 tests/                   # mocked + ollama-marked test suites
 ```
 
-Architectural invariants:
-
-- HTTP I/O lives only in `providers/`. Tests mock at this boundary with
-  `respx`. Scorers are pure and unit-testable without network access.
-- The package layout is pinned in `pyproject.toml`
-  (`packages = ["eval_harness"]`), do not relocate.
-- `httpx` is the transport used by `OllamaProvider` and mocked by `respx`.
-  No FastAPI surface exists or is planned for this project.
-
-## Requirements
-
-- Python ≥ 3.11
-- `uv` for environment management
-- Ollama running at `localhost:11434` with the `llama3.2` model pulled
-  (only required for `@pytest.mark.ollama` tests)
-
-## Installation
-
-```bash
-uv sync                       # installs runtime + dev dependencies
-ollama pull llama3.2          # ~2 GB, one-time
-curl -sf http://localhost:11434/api/tags | head    # health check
-```
+HTTP I/O lives only in `providers/`; tests mock at this boundary with
+`respx`, so scorers stay pure and unit-testable without network access.
 
 ## Testing
 
@@ -95,14 +96,6 @@ The suite is split by two custom markers (defined in `pyproject.toml`):
 
 `asyncio_mode = "auto"` is set, so async tests do not need
 `@pytest.mark.asyncio`.
-
-```bash
-uv run pytest                          # full suite
-uv run pytest -m "not ollama"          # fast path, no network
-uv run pytest -m ollama                # live model only
-uv run pytest -m mocked                # mocked unit tests only
-uv run pytest tests/path/to/test.py::test_name
-```
 
 ### `xfail(strict=True)` as executable documentation
 
@@ -118,19 +111,6 @@ test_calibration.py::test_exact_match_calibration[factual_001]  XFAIL
 If a scorer ever silently *stops* failing on that item, strict mode flips
 the test red and forces investigation. The xfail set is the spec for what
 the scorers are known to get wrong.
-
-### Coverage and HTML report
-
-```bash
-uv run pytest \
-  --html=reports/report.html --self-contained-html \
-  --cov=eval_harness --cov-report=html:reports/coverage
-```
-
-Hosted artifacts from the latest run:
-
-- Pytest HTML: https://sbezjak.github.io/llm-eval-harness/reports/report.html
-- Coverage:    https://sbezjak.github.io/llm-eval-harness/reports/coverage/
 
 ## Findings
 
@@ -151,15 +131,6 @@ Ten findings are encoded as tests. Use them as entry points into the codebase.
 
 Pass `-s` on the `ollama`-marked tests to stream per-item evidence
 (question, model output, per-scorer scores, judge reasoning) to stdout.
-
-## Development
-
-```bash
-uv run ruff check .
-uv run ruff format .
-```
-
-Ruff is configured for `line-length = 100` and `target-version = "py311"`.
 
 ## Further reading
 
