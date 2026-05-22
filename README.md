@@ -58,8 +58,9 @@ class Scorer:
 ```
 
 Findings from the calibration run (95 passed, 51 xfailed, 98% coverage) are
-documented as executable tests, see `docs/background.md` for the per-scorer
-failure-mode matrix and a plain-language walkthrough.
+documented as executable tests, see `docs/walkthrough.md` for the layered
+writeup: 5-minute TL;DR, every finding as a tight section, known
+limitations, and the per-scorer failure-mode matrix.
 
 ## Architecture
 
@@ -78,7 +79,7 @@ data/
 ├── golden_set.yaml      # 10 question/expected pairs
 ├── human_labels.yaml    # frozen model outputs + human PASS/FAIL grades
 └── bias_pairs.yaml      # name-swap pairs for bias drift checks
-docs/background.md       # QA-engineer walkthrough, failure-mode matrix
+docs/walkthrough.md      # layered writeup: TL;DR, findings, limitations
 tests/                   # mocked + ollama-marked test suites
 ```
 
@@ -134,6 +135,7 @@ Pass `-s` on the `ollama`-marked tests to stream per-item evidence
 
 ## Further reading
 
-- `docs/background.md`, LLM-eval concepts in plain pytest words, a
-  per-scorer failure-mode matrix, and the deliberate trade-offs.
+- `docs/walkthrough.md`, layered writeup: why this project exists,
+  5-minute TL;DR, every finding as a tight section, known limitations,
+  and the per-scorer failure-mode matrix.
 - `CLAUDE.md`, guidance for AI assistants working in this repo.
