@@ -38,7 +38,7 @@ uv run pytest \
 ## Overview
 
 The project answers one question: *how do you assert correctness on LLM
-output when there is no canonical "right" wording?* Five scorers are
+output when there is no "right" wording?* Five scorers are
 implemented and calibrated against a 10-item golden set with human-graded
 labels:
 
