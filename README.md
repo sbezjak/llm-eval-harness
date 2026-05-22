@@ -1,5 +1,7 @@
 # llm-eval-harness
 
+Start here: [walkthrough](docs/walkthrough.md) (what this project is and how to read it)
+
 Live reports: [test report](https://sbezjak.github.io/llm-eval-harness/reports/report.html) · [coverage](https://sbezjak.github.io/llm-eval-harness/reports/coverage/)
 
 Built as project 1 of 5 exploring AI/LLM testing. A writeup is in progress.
