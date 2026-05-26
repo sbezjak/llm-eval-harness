@@ -1,6 +1,6 @@
 # llm-eval-harness
 
-Start here: [walkthrough](docs/walkthrough.md) (walkthrough of the project)
+All information on project: [walkthrough](docs/walkthrough.md)
 
 Live reports: [test report](https://sbezjak.github.io/llm-eval-harness/reports/report.html) · [coverage](https://sbezjak.github.io/llm-eval-harness/reports/coverage/)
 
