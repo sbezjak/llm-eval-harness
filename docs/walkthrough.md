@@ -8,8 +8,7 @@ Live HTML test report: [report.html](https://sbezjak.github.io/llm-eval-harness/
 I'm an automation tester. My usual job is checking that an app does the
 same thing every time. AI testing is the opposite: the same question can
 produce a different answer on every run, and more than one of those
-answers can be correct. The job becomes "write a useful assertion when
-the answer is prose."
+answers can be correct.
 
 This repo is my attempt to do that the way a QA engineer would: build a
 small fixture (10 questions with hand-written expected answers), run a
