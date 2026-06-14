@@ -141,3 +141,17 @@ Pass `-s` on the `ollama`-marked tests to stream per-item evidence
   5-minute TL;DR, every finding as a tight section, known limitations,
   and the per-scorer failure-mode matrix.
 - `CLAUDE.md`, guidance for AI assistants working in this repo.
+
+The canonical sources behind this project, worth reading first for the
+overview a hands-on build does not give:
+
+- Zheng et al. 2023, [Judging LLM-as-a-Judge with MT-Bench and Chatbot
+  Arena](https://arxiv.org/abs/2306.05685), the reference study for using an
+  LLM to grade LLM output. It names the judge biases this harness reproduces
+  by hand: self-enhancement, position, and verbosity bias (Findings 4-8).
+- [OpenAI Evals](https://github.com/openai/evals), the production eval
+  framework this harness mirrors in miniature.
+- BLEU ([Papineni et al. 2002](https://aclanthology.org/P02-1040/)) and ROUGE
+  ([Lin 2004](https://aclanthology.org/W04-1013/)), the original papers behind
+  the n-gram-overlap scorers, worth reading to see what they were built to
+  measure and what they were not (Finding 10).
