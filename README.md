@@ -1,5 +1,7 @@
 # llm-eval-harness
 
+> Part of a [5-project AI/QA testing portfolio](https://github.com/sbezjak) - all projects + write-ups.
+
 All information on project: [walkthrough](docs/walkthrough.md)
 
 Live reports: [test report](https://sbezjak.github.io/llm-eval-harness/reports/report.html) · [coverage](https://sbezjak.github.io/llm-eval-harness/reports/coverage/)
