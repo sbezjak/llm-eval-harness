@@ -1,12 +1,10 @@
 # llm-eval-harness
 
-> Part of a [5-project AI/QA testing portfolio](https://github.com/sbezjak) - all projects + write-ups.
+> Part of a [5-project AI/QA testing portfolio](https://github.com/sbezjak/sbezjak) - all projects and write-ups.
 
 All information on project: [walkthrough](docs/walkthrough.md)
 
 Live reports: [test report](https://sbezjak.github.io/llm-eval-harness/reports/report.html) · [coverage](https://sbezjak.github.io/llm-eval-harness/reports/coverage/)
-
-Built as project 1 of 5 exploring AI/LLM testing. A writeup is in progress.
 
 A pytest-based evaluation harness for LLM systems. It runs a fixed golden set
 through a local model, scores the outputs with five different scorers, and
