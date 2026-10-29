@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from eval_harness.scorers.judge import (
@@ -32,10 +34,14 @@ def _capturing_judge(response: str, captured: list[str]):
 
 
 def test_parser_accepts_clean_json():
-    raw = '{"reasoning": "looks right", "correctness": 9, "relevance": 10}'
-    c, r, reasoning = _parse_judge_response(raw)
+    raw = (
+        '{"evidence_span": "the answer text", "contradicts_expected": false, '
+        '"correctness": 9, "relevance": 10}'
+    )
+    c, r, span, contra = _parse_judge_response(raw)
     assert (c, r) == (9, 10)
-    assert reasoning == "looks right"
+    assert span == "the answer text"
+    assert contra is False
 
 
 def test_parser_extracts_json_from_surrounding_prose():
@@ -44,25 +50,39 @@ def test_parser_extracts_json_from_surrounding_prose():
     raw = (
         "Sure! Here is my evaluation:\n"
         "```json\n"
-        '{"reasoning": "correct", "correctness": 8, "relevance": 9}\n'
+        '{"evidence_span": "Paris", "contradicts_expected": false, '
+        '"correctness": 8, "relevance": 9}\n'
         "```\n"
     )
-    c, r, _ = _parse_judge_response(raw)
+    c, r, span, _ = _parse_judge_response(raw)
     assert (c, r) == (8, 9)
+    assert span == "Paris"
+
+
+def test_parser_reads_contradiction_flag():
+    """The contradicts_expected flag must survive parsing - it gates the
+    correctness score in score()."""
+    raw = (
+        '{"evidence_span": "the moon is made of cheese", '
+        '"contradicts_expected": true, "correctness": 8, "relevance": 9}'
+    )
+    _, _, _, contra = _parse_judge_response(raw)
+    assert contra is True
 
 
 def test_parser_falls_back_to_regex_on_malformed_json():
-    """If JSON parsing fails entirely, grab the integers by regex. This is
-    the safety net for when a small local model produces almost-but-not-quite
-    JSON (trailing commas, smart quotes, missing braces)."""
+    """If JSON parsing fails entirely, grab the integers by regex. No grounding
+    fields survive that path - the empty span then correctly fails the substring
+    check in score(), because an unparseable rationale is not a grounded one."""
     raw = "correctness: 7, relevance: 8 (the answer was decent)"
-    c, r, reasoning = _parse_judge_response(raw)
+    c, r, span, contra = _parse_judge_response(raw)
     assert (c, r) == (7, 8)
-    assert "regex fallback" in reasoning
+    assert span == ""
+    assert contra is False
 
 
 def test_parser_raises_when_nothing_parseable():
-    """Don't silently coerce to 0 — that would hide a broken judge."""
+    """Don't silently coerce to 0 - that would hide a broken judge."""
     with pytest.raises(JudgeParseError):
         _parse_judge_response("I don't know how to evaluate this, sorry.")
 
@@ -70,11 +90,22 @@ def test_parser_raises_when_nothing_parseable():
 # ---------- scorer integration tests ----------
 
 
+def _resp(correctness: int, relevance: int, span: str, contradicts: bool = False) -> str:
+    """A well-formed judge response whose evidence_span the test controls."""
+    return json.dumps(
+        {
+            "evidence_span": span,
+            "contradicts_expected": contradicts,
+            "correctness": correctness,
+            "relevance": relevance,
+        }
+    )
+
+
 @pytest.mark.mocked
 async def test_judge_passes_when_both_dimensions_high():
-    raw = '{"reasoning": "perfect", "correctness": 10, "relevance": 10}'
-    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(raw))
-    r = await scorer.score("Q", "A", "expected")
+    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(_resp(10, 10, "answer")))
+    r = await scorer.score("Q", "answer", "expected")
     assert r.passed is True
     assert r.score == 1.0
     assert "correctness=10/10" in r.reason
@@ -83,9 +114,8 @@ async def test_judge_passes_when_both_dimensions_high():
 @pytest.mark.mocked
 async def test_judge_fails_when_combined_score_below_threshold():
     """correctness=5, relevance=5 → score 0.5, below 0.7 → fail."""
-    raw = '{"reasoning": "meh", "correctness": 5, "relevance": 5}'
-    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(raw))
-    r = await scorer.score("Q", "A", "expected")
+    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(_resp(5, 5, "answer")))
+    r = await scorer.score("Q", "answer", "expected")
     assert r.passed is False
     assert r.score == 0.5
 
@@ -93,9 +123,8 @@ async def test_judge_fails_when_combined_score_below_threshold():
 @pytest.mark.mocked
 async def test_judge_clamps_out_of_range_scores():
     """Small models occasionally invent 11/10 scores. Clamp, don't crash."""
-    raw = '{"reasoning": "great", "correctness": 15, "relevance": -3}'
-    scorer = LLMJudgeScorer(threshold=0.5, judge_fn=_fake_judge(raw))
-    r = await scorer.score("Q", "A", "expected")
+    scorer = LLMJudgeScorer(threshold=0.5, judge_fn=_fake_judge(_resp(15, -3, "answer")))
+    r = await scorer.score("Q", "answer", "expected")
     # 10 + 0 (clamped) → 0.5
     assert r.score == 0.5
 
@@ -103,12 +132,96 @@ async def test_judge_clamps_out_of_range_scores():
 @pytest.mark.mocked
 async def test_judge_threshold_gates_verdict():
     """Same response, two thresholds, opposite verdicts."""
-    raw = '{"reasoning": "ok", "correctness": 7, "relevance": 7}'
-    lenient = LLMJudgeScorer(threshold=0.5, judge_fn=_fake_judge(raw))
-    strict = LLMJudgeScorer(threshold=0.9, judge_fn=_fake_judge(raw))
+    resp = _resp(7, 7, "answer")
+    lenient = LLMJudgeScorer(threshold=0.5, judge_fn=_fake_judge(resp))
+    strict = LLMJudgeScorer(threshold=0.9, judge_fn=_fake_judge(resp))
 
-    assert (await lenient.score("Q", "A", "E")).passed is True
-    assert (await strict.score("Q", "A", "E")).passed is False
+    assert (await lenient.score("Q", "answer", "E")).passed is True
+    assert (await strict.score("Q", "answer", "E")).passed is False
+
+
+# ---------- grounding guard (the anti-lie substring check) ----------
+
+
+@pytest.mark.mocked
+async def test_judge_rejects_fabricated_evidence_span():
+    """The core guard: a judge that cites a span NOT in the answer is
+    fabricating its rationale. The substring check catches it in code - the
+    judge cannot claim to have read what it cannot quote."""
+    resp = _resp(10, 10, "a span that never appears in the answer")
+    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(resp))
+    with pytest.raises(JudgeParseError, match="fabricated"):
+        await scorer.score("Q", "the real answer text", "E")
+
+
+@pytest.mark.mocked
+async def test_judge_rejects_ungrounded_verdict():
+    """An empty evidence_span is an un-grounded verdict - the 'I read it' lie
+    with no quote at all. Not trusted."""
+    resp = _resp(10, 10, "")
+    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(resp))
+    with pytest.raises(JudgeParseError, match="un-grounded"):
+        await scorer.score("Q", "the real answer text", "E")
+
+
+@pytest.mark.mocked
+async def test_judge_accepts_real_evidence_span():
+    """A verbatim quote that really is in the answer passes the guard."""
+    resp = _resp(9, 9, "capital of France is Paris")
+    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(resp))
+    r = await scorer.score("Q", "The capital of France is Paris.", "Paris")
+    assert r.passed is True
+    assert "grounded on:" in r.reason
+
+
+@pytest.mark.mocked
+async def test_guard_tolerates_whitespace_reflow():
+    """A weak judge re-flows whitespace when quoting (observed live: it
+    collapsed a double newline). That is cosmetic, not a lie - the guard must
+    still accept it."""
+    # answer has a double newline; the judge quotes it with a single one
+    answer = "There are eight planets:\n\n1. Mercury\n2. Venus"
+    resp = _resp(10, 10, "There are eight planets:\n1. Mercury\n2. Venus")
+    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(resp))
+    r = await scorer.score("Q", answer, "8")
+    assert r.passed is True
+
+
+@pytest.mark.mocked
+async def test_guard_tolerates_smart_quote_substitution():
+    """A weak judge swaps straight quotes for curly ones when quoting
+    (observed live: it quoted the answer's "AI" as ’AI’). Cosmetic - accept."""
+    answer = 'The acronym "AI" stands for Artificial Intelligence.'
+    resp = _resp(10, 10, "The acronym ’AI’ stands for Artificial Intelligence.")
+    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(resp))
+    r = await scorer.score("Q", answer, "Artificial Intelligence")
+    assert r.passed is True
+
+
+@pytest.mark.mocked
+async def test_guard_still_catches_paraphrase_after_normalization():
+    """Normalization forgives quotes and whitespace, NOT different words. A
+    span with invented tokens (observed live: 'pysto', options never in the
+    answer) still fails - the guard keeps its teeth."""
+    answer = "Use pytest -m 'slow or network' to run those tests."
+    resp = _resp(10, 10, "run pysto --junit-xml-filter='slow|network'")
+    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(resp))
+    with pytest.raises(JudgeParseError, match="fabricated"):
+        await scorer.score("Q", answer, "pytest -m 'slow or network'")
+
+
+@pytest.mark.mocked
+async def test_contradiction_flag_caps_correctness():
+    """A judge that admits the answer contradicts the reference cannot also
+    pass it on correctness - correctness is capped at 2 regardless of the
+    number the judge wrote."""
+    resp = _resp(10, 10, "the moon is made of cheese", contradicts=True)
+    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(resp))
+    r = await scorer.score("Q", "the moon is made of cheese", "The moon is rock.")
+    # correctness capped 10 → 2, relevance 10 → (2+10)/20 = 0.6, below 0.7
+    assert r.score == 0.6
+    assert r.passed is False
+    assert "contradiction with EXPECTED" in r.reason
 
 
 @pytest.mark.mocked
@@ -117,8 +230,8 @@ async def test_judge_prompt_contains_all_three_inputs():
     expected answer, and the model's output. Pin that the template
     actually substitutes all three."""
     captured: list[str] = []
-    raw = '{"reasoning": "ok", "correctness": 8, "relevance": 8}'
-    scorer = LLMJudgeScorer(judge_fn=_capturing_judge(raw, captured))
+    resp = _resp(8, 8, "Paris")
+    scorer = LLMJudgeScorer(judge_fn=_capturing_judge(resp, captured))
     await scorer.score(
         "What is the capital of France?",
         "The capital of France is Paris.",
@@ -162,32 +275,16 @@ def test_judge_threshold_validated_at_construction():
 
 
 @pytest.mark.mocked
-async def test_judge_reason_includes_dimension_breakdown():
-    """The `reason` string is what shows up in the pytest report when
-    a test fails — for a QA engineer scanning failures, this is the
-    main bit of evidence. For the judge specifically, the most useful
-    thing to surface is *why* the judge voted the way it did, broken
-    down by dimension.
-
-    Concrete example: the judge can fail an item because the answer is
-    factually wrong (low correctness, high relevance — e.g. a
-    confident hallucination on the right topic) OR because the answer
-    drifted off-topic (high correctness, low relevance — e.g. a true
-    statement that doesn't actually answer the question). One overall
-    score can't distinguish those; the per-dimension breakdown can.
-
-    This test feeds a known-shape mock response, scores it, and asserts
-    that the rendered `reason` string surfaces:
-      - the correctness number (2/10),
-      - the relevance number (9/10),
-      - the judge's free-text justification ("wrong but on topic").
-
-    If any of those drop out of the rendered reason, downstream
-    failure reports lose their main diagnostic value.
-    """
-    raw = '{"reasoning": "wrong but on topic", "correctness": 2, "relevance": 9}'
-    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(raw))
-    r = await scorer.score("Q", "A", "E")
+async def test_judge_reason_includes_dimension_breakdown_and_grounding():
+    """The `reason` string is what shows up in the pytest report when a test
+    fails - for a QA engineer scanning failures, this is the main evidence.
+    It must surface the per-dimension scores (a right-but-off-topic answer and
+    a confident-hallucination answer are distinguishable only per-dimension)
+    AND the verbatim span the judge grounded its verdict on."""
+    resp = _resp(2, 9, "on topic but wrong")
+    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(resp))
+    r = await scorer.score("Q", "on topic but wrong", "E")
     assert "correctness=2/10" in r.reason
     assert "relevance=9/10" in r.reason
-    assert "wrong but on topic" in r.reason
+    assert "grounded on:" in r.reason
+    assert "on topic but wrong" in r.reason

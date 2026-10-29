@@ -132,8 +132,14 @@ Ten findings are encoded as tests. Use them as entry points into the codebase.
 | 9 | No detectable length bias on `llama3.2` (null result) | `test_length_bias.py` |
 | 10 | BLEU/ROUGE viability depends on reference-text shape, not the metric | `test_calibration.py::{test_bleu_calibration,test_rouge_calibration}` |
 
+Update 2026-10-29: the judge now has a grounding guard. It must copy, word for word, the part of the answer its
+score rests on, and code checks that the copy is really in the answer (`judge.py`, `evidence_span`). This replaced
+the free-text "reasoning" field in the judge prompt. Findings 4, 5, 8 and 9 were measured before that, with the
+old prompt, and have not been re-run with the new one. Finding 5 is about the old reasoning field, which no longer
+exists.
+
 Pass `-s` on the `ollama`-marked tests to stream per-item evidence
-(question, model output, per-scorer scores, judge reasoning) to stdout.
+(question, model output, per-scorer scores, the judge's quoted evidence) to stdout.
 
 ## Further reading
 

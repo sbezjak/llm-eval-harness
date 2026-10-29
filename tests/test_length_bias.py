@@ -9,7 +9,7 @@ verbose answers and unfairly fail concise ones.
 How the test works:
 
 - Three cases (capital of France, chemical symbol of silver, why ice
-  floats), each with a question and *two* correct answers — one short
+  floats), each with a question and *two* correct answers - one short
   ("Paris.") and one long (a paragraph that elaborates).
 - For each case, ask the judge to score both versions of the same
   correct answer. Both should pass (they're both correct), and the
@@ -26,8 +26,8 @@ to hundreds of paired prompts across topics and lengths.
 
 A useful null result is still a result: if the test prints zero
 deltas, that's evidence the rubric design (separate correctness +
-relevance scores, reasoning before score) probably suppresses length
-bias on this kind of question. If a future model or rubric change
+relevance scores, grounded evidence before score) probably suppresses
+length bias on this kind of question. If a future model or rubric change
 makes deltas appear, you'll see them here.
 """
 
@@ -122,9 +122,9 @@ async def test_judge_length_bias(
     )
     print(f"delta (long - short): {delta:+.3f}")
     if delta > 0.05:
-        print("  → long version scored meaningfully higher — possible length bias")
+        print("  → long version scored meaningfully higher - possible length bias")
     elif delta < -0.05:
-        print("  → short version scored higher — opposite of length bias")
+        print("  → short version scored higher - opposite of length bias")
     else:
         print("  → no meaningful difference on this case")
 
