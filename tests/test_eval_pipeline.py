@@ -183,8 +183,9 @@ SEMANTIC_VS_JUDGE_DISAGREEMENTS: dict[str, str] = {
 
 
 @pytest.mark.ollama
+# raises=AssertionError: only a real disagreement counts, not a guard error.
 @pytest.mark.parametrize("item_id", with_xfail(
-    [i.id for i in GOLDEN_ITEMS], SEMANTIC_VS_JUDGE_DISAGREEMENTS,
+    [i.id for i in GOLDEN_ITEMS], SEMANTIC_VS_JUDGE_DISAGREEMENTS, raises=AssertionError,
 ))
 async def test_scorers_agree_on_verdict(item_id: str):
     """

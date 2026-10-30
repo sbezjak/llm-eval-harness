@@ -188,6 +188,27 @@ async def test_guard_tolerates_whitespace_reflow():
 
 
 @pytest.mark.mocked
+async def test_guard_tolerates_dropped_code_fence():
+    """A judge quoting across a code block skips the fence line and the line
+    breaks (observed live 2026-10-30 on procedural_001, llama3.2). Every word
+    is in the answer, in order - cosmetic, accept."""
+    answer = "use the `-m` option:\n\n```bash\npytest -m slow\npytest -m network\n```"
+    resp = _resp(10, 10, "use the `-m` option:pytest -m slowpytest -m network")
+    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(resp))
+    r = await scorer.score("Q", answer, "pytest -m 'slow or network'")
+    assert r.passed is True
+
+
+@pytest.mark.mocked
+async def test_guard_rejects_span_of_only_formatting():
+    """A span of only quote marks or a fence line normalizes to "", which is
+    a substring of every answer. It quotes nothing, so it is un-grounded."""
+    scorer = LLMJudgeScorer(threshold=0.7, judge_fn=_fake_judge(_resp(10, 10, "```bash")))
+    with pytest.raises(JudgeParseError, match="no evidence_span"):
+        await scorer.score("Q", "```bash\npytest -m slow\n```", "x")
+
+
+@pytest.mark.mocked
 async def test_guard_tolerates_smart_quote_substitution():
     """A weak judge swaps straight quotes for curly ones when quoting
     (observed live: it quoted the answer's "AI" as ’AI’). Cosmetic - accept."""

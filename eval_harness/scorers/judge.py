@@ -56,6 +56,8 @@ DEFAULT_MODEL = "llama3.2"
 # See _normalize_for_match.
 _QUOTE_CHARS = "\"'`´‘’‚‛“”„‟′″"
 _WHITESPACE_RE = re.compile(r"\s+")
+# A markdown code-fence line (```, ```bash). Formatting, not words.
+_FENCE_LINE_RE = re.compile(r"^[ \t]*```[\w+-]*[ \t]*$", re.MULTILINE)
 
 
 def _normalize_for_match(text: str) -> str:
@@ -65,8 +67,11 @@ def _normalize_for_match(text: str) -> str:
 
     - all quote characters (straight, curly, backtick, prime) are removed -
       weak models freely swap ``"AI"`` for ``’AI’``;
-    - every run of whitespace (incl. newlines) collapses to a single space -
-      weak models re-flow ``:\\n\\n1.`` to ``:\\n1.``.
+    - code-fence lines (```` ``` ````, ```` ```bash ````) are dropped - a judge
+      quoting across a code block skips the fence (observed live 2026-10-30:
+      ``option:\\n\\n```bash\\npytest`` quoted as ``option:pytest``);
+    - all whitespace (incl. newlines) is removed - weak models re-flow
+      ``:\\n\\n1.`` to ``:\\n1.``, or drop the line break entirely.
 
     Deliberately narrow: it does NOT lowercase, stem, or drop words, so a
     genuinely fabricated span (different words, invented tokens like ``pysto``,
@@ -75,8 +80,9 @@ def _normalize_for_match(text: str) -> str:
     teeth while forgiving punctuation-and-whitespace noise the model cannot be
     trusted (finding: stating "copy exactly" is inert) to avoid.
     """
-    stripped = text.translate({ord(c): None for c in _QUOTE_CHARS})
-    return _WHITESPACE_RE.sub(" ", stripped).strip()
+    unfenced = _FENCE_LINE_RE.sub("", text)
+    stripped = unfenced.translate({ord(c): None for c in _QUOTE_CHARS})
+    return _WHITESPACE_RE.sub("", stripped)
 
 
 # The grading instructions sent to the judge. See LLMJudgeScorer's
@@ -251,7 +257,9 @@ class LLMJudgeScorer(Scorer):
         # have read the answer it cannot quote. See the design note in the
         # class docstring; validated shape-blind before rollout.
         span = evidence_span.strip()
-        if not span:
+        # Normalized too: a span of only quote marks or a fence line folds to
+        # "", and "" is in every answer.
+        if not _normalize_for_match(span):
             raise JudgeParseError(
                 "judge returned no evidence_span - an un-grounded verdict is not trusted"
             )

@@ -149,8 +149,8 @@ JUDGE_KNOWN_DISAGREEMENTS = {
 }
 
 
-def _params_with_xfail(known_disagreements: dict[str, str]):
-    return with_xfail([item["id"] for item in CORPUS], known_disagreements)
+def _params_with_xfail(known_disagreements: dict[str, str], raises: type | None = None):
+    return with_xfail([item["id"] for item in CORPUS], known_disagreements, raises)
 
 
 async def _agreement_assertion(scorer: Scorer, item_id: str) -> ScoreResult:
@@ -216,7 +216,8 @@ async def test_rouge_calibration(item_id: str):
 @pytest.mark.ollama
 @pytest.mark.parametrize(
     "item_id",
-    _params_with_xfail(JUDGE_KNOWN_DISAGREEMENTS),
+    # raises=AssertionError: only the judge's wrong PASS counts, not a guard error.
+    _params_with_xfail(JUDGE_KNOWN_DISAGREEMENTS, raises=AssertionError),
 )
 async def test_judge_calibration(item_id: str):
     """Judge calibration runs against live Ollama.

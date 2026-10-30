@@ -32,6 +32,8 @@ reports/*
 !reports/scorer_comparison.md
 !reports/human_eval_v1.md
 !reports/human_eval_v2.md
+# receipts the README cites for the judge guard re-run
+!reports/judge-guard-*.log
 !reports/report.html
 !reports/coverage/
 !reports/coverage/**

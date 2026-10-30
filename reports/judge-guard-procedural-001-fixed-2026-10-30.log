@@ -1,0 +1,176 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-9.0.3, pluggy-1.6.0 -- /Users/sara/StudioProjects/llm-eval-harness/.venv/bin/python3
+cachedir: .pytest_cache
+metadata: {'Python': '3.11.15', 'Platform': 'macOS-26.1-arm64-arm-64bit', 'Packages': {'pytest': '9.0.3', 'pluggy': '1.6.0'}, 'Plugins': {'cov': '7.1.0', 'metadata': '3.1.1', 'html': '4.2.0', 'asyncio': '1.3.0', 'respx': '0.23.1', 'anyio': '4.13.0'}}
+rootdir: /Users/sara/StudioProjects/llm-eval-harness
+configfile: pyproject.toml
+testpaths: tests
+plugins: cov-7.1.0, metadata-3.1.1, html-4.2.0, asyncio-1.3.0, respx-0.23.1, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 10940.09it/s]
+collected 156 items / 152 deselected / 4 selected
+
+tests/test_calibration.py::test_judge_calibration[procedural_001] 
+item:           procedural_001
+question:       Which pytest command runs tests marked either 'slow' or 'network'?
+expected:       "pytest -m 'slow or network'"
+frozen_output:  "You can use the following pytest command to run tests marked with either 'slow' or 'network':\n\n```bash\npytest --durations=0 --junit-xml=/path/to/output.xml --junit-xml-filter='slow|network'\n```\n\nHowever, a more common and efficient way is to use the `--junit-xml` option along with the `-m` option:\n\n```bash\npytest -m slow --junit-xml=/path/to/output.xml\npytest -m network --junit-xml=/path/to/output.xml\n```\n\nOr you can combine both in one command:\n\n```bash\npytest -m slow --junit-xml=/path/to/output.xml && pytest -m network --junit-xml=/path/to/output.xml\n```\n\nBut the most efficient way is to use the `--junit-xml-filter` option with a regular expression that matches 'slow' or 'network':\n\n```bash\npytest --durations=0 --junit-xml-filter='slow|network'\n```\n\nThis will run all tests marked with either 'slow' or 'network'."
+human_verdict:  FAIL
+scorer:         judge
+scorer score:   0.950
+scorer passed:  True
+scorer reason:  correctness=9/10 relevance=10/10 score=0.950 >= threshold=0.7 | grounded on: 'However, a more common and efficient way is to use the `--junit-xml` option along with the `-m` option:pytest -m slow --junit-xml=/path/to/output.xmlpytest -m network --junit-xml=/path/to/output.xml'
+XFAIL
+tests/test_eval_pipeline.py::test_scorer_against_live_ollama[procedural_001-judge] 
+item:     procedural_001
+scorer:   judge
+question: Which pytest command runs tests marked either 'slow' or 'network'?
+expected: "pytest -m 'slow or network'"
+got:      "You can use the following pytest command to run tests marked with either 'slow' or 'network':\n\n```bash\npytest --durations=0 --junit-xml=/path/to/output.xml --junit-xml-filter='slow|network'\n```\n\nHowever, a more common and efficient way is to use the `--junit-xml` option along with the `-m` option:\n\n```bash\npytest -m slow --junit-xml=/path/to/output.xml\npytest -m network --junit-xml=/path/to/output.xml\n```\n\nOr you can combine both in one command:\n\n```bash\npytest -m slow --junit-xml=/path/to/output.xml && pytest -m network --junit-xml=/path/to/output.xml\n```\n\nBut the most efficient way is to use the `--junit-xml-filter` option with a regular expression that matches 'slow' or 'network':\n\n```bash\npytest --durations=0 --junit-xml-filter='slow|network'\n```\n\nThis will run all tests marked with either 'slow' or 'network'."
+score:    0.95 (correctness=9/10 relevance=10/10 score=0.950 >= threshold=0.7 | grounded on: 'However, a more common and efficient way is to use the `--junit-xml` option along with the `-m` option:pytest -m slow --junit-xml=/path/to/output.xmlpytest -m network --junit-xml=/path/to/output.xml')
+
+--- rubric prompt sent to judge ---
+You are a strict but fair grader for a question-answering system.
+
+You will be given:
+- A QUESTION
+- An EXPECTED answer (a reference - the model's answer does NOT need to
+  match it word-for-word to be correct)
+- The MODEL'S answer to grade
+
+Grade the model's answer on two dimensions, each 0-10:
+- correctness: does the answer correctly answer the question?
+  10 = fully correct (even if phrased differently from the expected answer)
+   5 = partially correct, or correct but with significant inaccuracies
+   0 = wrong, contradicts the expected answer, or hallucinated
+- relevance: is the answer on-topic and responsive to the question?
+  10 = directly addresses the question
+   5 = partially on-topic, drifts
+   0 = off-topic or refuses to answer
+
+Respond with ONLY a JSON object, no other text:
+{"evidence_span": "<Copy, word for word, the span of the MODEL'S ANSWER that most determines your correctness score. Copy it exactly so it can be checked against the answer verbatim. Quote the MODEL'S ANSWER itself - NOT the EXPECTED answer, NOT the question, and NOT these instructions. If the answer is wrong, quote the wrong part of the answer, not the correct version.>",
+ "contradicts_expected": <true if the model's answer asserts something the EXPECTED answer contradicts, else false>,
+ "correctness": <int>,
+ "relevance": <int>}
+
+QUESTION: Which pytest command runs tests marked either 'slow' or 'network'?
+EXPECTED: pytest -m 'slow or network'
+MODEL'S ANSWER: You can use the following pytest command to run tests marked with either 'slow' or 'network':
+
+```bash
+pytest --durations=0 --junit-xml=/path/to/output.xml --junit-xml-filter='slow|network'
+```
+
+However, a more common and efficient way is to use the `--junit-xml` option along with the `-m` option:
+
+```bash
+pytest -m slow --junit-xml=/path/to/output.xml
+pytest -m network --junit-xml=/path/to/output.xml
+```
+
+Or you can combine both in one command:
+
+```bash
+pytest -m slow --junit-xml=/path/to/output.xml && pytest -m network --junit-xml=/path/to/output.xml
+```
+
+But the most efficient way is to use the `--junit-xml-filter` option with a regular expression that matches 'slow' or 'network':
+
+```bash
+pytest --durations=0 --junit-xml-filter='slow|network'
+```
+
+This will run all tests marked with either 'slow' or 'network'.
+--- end rubric prompt ---
+PASSED
+tests/test_eval_pipeline.py::test_scorers_agree_on_verdict[procedural_001] 
+item:      procedural_001  [DISAGREE]
+question:  Which pytest command runs tests marked either 'slow' or 'network'?
+expected:  "pytest -m 'slow or network'"
+got:       "You can use the following pytest command to run tests marked with either 'slow' or 'network':\n\n```bash\npytest --durations=0 --junit-xml=/path/to/output.xml --junit-xml-filter='slow|network'\n```\n\nHowever, a more common and efficient way is to use the `--junit-xml` option along with the `-m` option:\n\n```bash\npytest -m slow --junit-xml=/path/to/output.xml\npytest -m network --junit-xml=/path/to/output.xml\n```\n\nOr you can combine both in one command:\n\n```bash\npytest -m slow --junit-xml=/path/to/output.xml && pytest -m network --junit-xml=/path/to/output.xml\n```\n\nBut the most efficient way is to use the `--junit-xml-filter` option with a regular expression that matches 'slow' or 'network':\n\n```bash\npytest --durations=0 --junit-xml-filter='slow|network'\n```\n\nThis will run all tests marked with either 'slow' or 'network'."
+semantic:  FAIL  (score=0.579, threshold=0.75)
+judge:     PASS  (score=0.950, threshold=0.7)
+judge says: correctness=9/10 relevance=10/10 score=0.950 >= threshold=0.7 | grounded on: 'However, a more common and efficient way is to use the `--junit-xml` option along with the `-m` option:pytest -m slow --junit-xml=/path/to/output.xmlpytest -m network --junit-xml=/path/to/output.xml'
+XFAIL
+tests/test_judge_variance.py::test_judge_stability[procedural_001-0.7]   run 1: score=0.950 passed=True
+  run 2: score=0.950 passed=True
+  run 3: score=0.950 passed=True
+  run 4: score=0.950 passed=True
+  run 5: score=0.950 passed=True
+
+item:           procedural_001
+runs:           5
+scores:         [0.95, 0.95, 0.95, 0.95, 0.95]
+mean:           0.950
+stdev:          0.000
+min / max:      0.950 / 0.950
+verdict flip:   no
+expected score: ~0.700 (from V3 frozen run)
+FAILED
+
+=================================== FAILURES ===================================
+___________________ test_judge_stability[procedural_001-0.7] ___________________
+
+item_id = 'procedural_001', expected_score = 0.7
+
+    @pytest.mark.ollama
+    @pytest.mark.parametrize(
+        "item_id,expected_score",
+        [
+            # Stuck-at-threshold: hallucinated answer, judge consistently scores 0.700.
+            ("procedural_001", 0.700),
+            # Clearly correct, judge consistently scores 1.000 (sanity contrast).
+            ("factual_001", 1.000),
+        ],
+    )
+    async def test_judge_stability(item_id: str, expected_score: float):
+        item = CORPUS_BY_ID[item_id]
+        judge = LLMJudgeScorer(threshold=0.7)
+    
+        scores: list[float] = []
+        verdicts: list[bool] = []
+        for run in range(N_RUNS):
+            result = await judge.score(item["question"], item["frozen_output"], item["expected"])
+            scores.append(result.score)
+            verdicts.append(result.passed)
+            print(f"  run {run + 1}: score={result.score:.3f} passed={result.passed}")
+    
+        mean = statistics.mean(scores)
+        stdev = statistics.stdev(scores) if len(set(scores)) > 1 else 0.0
+        flips = len(set(verdicts)) > 1
+    
+        print(f"\nitem:           {item_id}")
+        print(f"runs:           {N_RUNS}")
+        print(f"scores:         {[round(s, 3) for s in scores]}")
+        print(f"mean:           {mean:.3f}")
+        print(f"stdev:          {stdev:.3f}")
+        print(f"min / max:      {min(scores):.3f} / {max(scores):.3f}")
+        print(f"verdict flip:   {'YES — PASS/FAIL changed across runs' if flips else 'no'}")
+        print(f"expected score: ~{expected_score:.3f} (from V3 frozen run)")
+    
+>       assert abs(mean - expected_score) < 0.05, (
+            f"\n  judge stability broken on {item_id!r}:"
+            f"\n    expected mean ~{expected_score:.3f} (from V3 frozen run)"
+            f"\n    observed mean  {mean:.3f}"
+            f"\n    scores:        {scores}"
+            f"\n  the judge has drifted — re-investigate against new data."
+        )
+E       AssertionError: 
+E           judge stability broken on 'procedural_001':
+E             expected mean ~0.700 (from V3 frozen run)
+E             observed mean  0.950
+E             scores:        [0.95, 0.95, 0.95, 0.95, 0.95]
+E           the judge has drifted — re-investigate against new data.
+E       assert 0.25 < 0.05
+E        +  where 0.25 = abs((0.95 - 0.7))
+
+tests/test_judge_variance.py:79: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_eval_pipeline.py::test_scorer_against_live_ollama[procedural_001-judge]
+XFAIL tests/test_calibration.py::test_judge_calibration[procedural_001] - judge wrongly says PASS: the model's answer is a fully hallucinated pytest flag ('--junit-xml-filter') that does not exist; the same llama3.2 acting as judge can't detect its own hallucination (this is self-grading bias — the canonical LLM-as-judge failure mode)
+XFAIL tests/test_eval_pipeline.py::test_scorers_agree_on_verdict[procedural_001] - semantic FAIL + judge PASS — judge falls for its own hallucinated flag (self-grading bias); semantic correctly says FAIL
+FAILED tests/test_judge_variance.py::test_judge_stability[procedural_001-0.7]
+====== 1 failed, 1 passed, 152 deselected, 2 xfailed in 106.10s (0:01:46) ======
+exit 1

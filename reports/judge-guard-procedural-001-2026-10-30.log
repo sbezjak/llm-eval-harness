@@ -1,0 +1,148 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-9.0.3, pluggy-1.6.0 -- /Users/sara/StudioProjects/llm-eval-harness/.venv/bin/python3
+cachedir: .pytest_cache
+metadata: {'Python': '3.11.15', 'Platform': 'macOS-26.1-arm64-arm-64bit', 'Packages': {'pytest': '9.0.3', 'pluggy': '1.6.0'}, 'Plugins': {'cov': '7.1.0', 'metadata': '3.1.1', 'html': '4.2.0', 'asyncio': '1.3.0', 'respx': '0.23.1', 'anyio': '4.13.0'}}
+rootdir: /Users/sara/StudioProjects/llm-eval-harness
+configfile: pyproject.toml
+testpaths: tests
+plugins: cov-7.1.0, metadata-3.1.1, html-4.2.0, asyncio-1.3.0, respx-0.23.1, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 6575.95it/s]
+collected 154 items / 150 deselected / 4 selected
+
+tests/test_calibration.py::test_judge_calibration[procedural_001] XFAIL
+tests/test_eval_pipeline.py::test_scorer_against_live_ollama[procedural_001-judge] FAILED
+tests/test_eval_pipeline.py::test_scorers_agree_on_verdict[procedural_001] XFAIL
+tests/test_judge_variance.py::test_judge_stability[procedural_001-0.7] FAILED
+
+=================================== FAILURES ===================================
+____________ test_scorer_against_live_ollama[procedural_001-judge] _____________
+
+item = GoldenItem(id='procedural_001', question="Which pytest command runs tests marked either 'slow' or 'network'?", expected="pytest -m 'slow or network'", difficulty='medium', category='procedural', tags=())
+scorer = <eval_harness.scorers.judge.LLMJudgeScorer object at 0x1193392d0>
+
+    @pytest.mark.ollama
+    @pytest.mark.parametrize("item,scorer", _live_params())
+    async def test_scorer_against_live_ollama(item: GoldenItem, scorer: Scorer):
+        """End-to-end: ask a live Ollama, score with each scorer in turn.
+    
+        The pytest html report becomes the artifact: every (item, scorer) pair
+        is a row. Disagreements between scorers — exact match fails on a
+        prose-wrapped answer that semantic similarity passes — are exactly the
+        signal we want to see, encoded as xfail-strict above.
+    
+        For the judge specifically, the *rendered rubric prompt* is logged so
+        you can confirm what the judge actually saw. Useful when debugging
+        judge-reasoning artifacts (e.g. systematic "did not directly address
+        the question" rationalizations) — sometimes the issue is in how the
+        prompt template substitutes multi-line `got` text, not in the model.
+        """
+        output = await _ollama_response(item)
+>       result = await scorer.score(item.question, output, item.expected)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_eval_pipeline.py:132: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <eval_harness.scorers.judge.LLMJudgeScorer object at 0x1193392d0>
+question = "Which pytest command runs tests marked either 'slow' or 'network'?"
+output = "You can use the following pytest command to run tests marked with either 'slow' or 'network':\n\n```bash\npytest --du...-durations=0 --junit-xml-filter='slow|network'\n```\n\nThis will run all tests marked with either 'slow' or 'network'."
+expected = "pytest -m 'slow or network'"
+
+    async def score(self, question: str, output: str, expected: str) -> ScoreResult:
+        prompt = self.build_prompt(question, output, expected)
+        raw = await self._judge_fn(prompt)
+        correctness, relevance, evidence_span, contradicts_expected = _parse_judge_response(raw)
+    
+        # Clamp into 0-10 in case the judge invented an out-of-range score.
+        correctness = max(0, min(10, correctness))
+        relevance = max(0, min(10, relevance))
+    
+        # Grounding guard. The judge must quote, verbatim, the span of the
+        # answer it based its correctness call on, and that quote must really
+        # be in the answer. A fabricated rationale (a span that isn't in the
+        # answer) or an un-grounded verdict (no span at all) is not trusted -
+        # it is the "I read it" lie. This is a substring check in *code*, not a
+        # request the judge can talk its way past: the judge cannot claim to
+        # have read the answer it cannot quote. See the design note in the
+        # class docstring; validated shape-blind before rollout.
+        span = evidence_span.strip()
+        if not span:
+            raise JudgeParseError(
+                "judge returned no evidence_span - an un-grounded verdict is not trusted"
+            )
+        if _normalize_for_match(span) not in _normalize_for_match(output):
+>           raise JudgeParseError(
+                f"judge cited a span not in the answer (fabricated rationale): {span!r}"
+            )
+E           eval_harness.scorers.judge.JudgeParseError: judge cited a span not in the answer (fabricated rationale): 'However, a more common and efficient way is to use the `--junit-xml` option along with the `-m` option:pytest -m slow --junit-xml=/path/to/output.xmlpytest -m network --junit-xml=/path/to/output.xml'
+
+eval_harness/scorers/judge.py:259: JudgeParseError
+___________________ test_judge_stability[procedural_001-0.7] ___________________
+
+item_id = 'procedural_001', expected_score = 0.7
+
+    @pytest.mark.ollama
+    @pytest.mark.parametrize(
+        "item_id,expected_score",
+        [
+            # Stuck-at-threshold: hallucinated answer, judge consistently scores 0.700.
+            ("procedural_001", 0.700),
+            # Clearly correct, judge consistently scores 1.000 (sanity contrast).
+            ("factual_001", 1.000),
+        ],
+    )
+    async def test_judge_stability(item_id: str, expected_score: float):
+        item = CORPUS_BY_ID[item_id]
+        judge = LLMJudgeScorer(threshold=0.7)
+    
+        scores: list[float] = []
+        verdicts: list[bool] = []
+        for run in range(N_RUNS):
+>           result = await judge.score(item["question"], item["frozen_output"], item["expected"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_judge_variance.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <eval_harness.scorers.judge.LLMJudgeScorer object at 0x11a56d810>
+question = "Which pytest command runs tests marked either 'slow' or 'network'?"
+output = "You can use the following pytest command to run tests marked with either 'slow' or 'network':\n\n```bash\npytest --du...-durations=0 --junit-xml-filter='slow|network'\n```\n\nThis will run all tests marked with either 'slow' or 'network'."
+expected = "pytest -m 'slow or network'"
+
+    async def score(self, question: str, output: str, expected: str) -> ScoreResult:
+        prompt = self.build_prompt(question, output, expected)
+        raw = await self._judge_fn(prompt)
+        correctness, relevance, evidence_span, contradicts_expected = _parse_judge_response(raw)
+    
+        # Clamp into 0-10 in case the judge invented an out-of-range score.
+        correctness = max(0, min(10, correctness))
+        relevance = max(0, min(10, relevance))
+    
+        # Grounding guard. The judge must quote, verbatim, the span of the
+        # answer it based its correctness call on, and that quote must really
+        # be in the answer. A fabricated rationale (a span that isn't in the
+        # answer) or an un-grounded verdict (no span at all) is not trusted -
+        # it is the "I read it" lie. This is a substring check in *code*, not a
+        # request the judge can talk its way past: the judge cannot claim to
+        # have read the answer it cannot quote. See the design note in the
+        # class docstring; validated shape-blind before rollout.
+        span = evidence_span.strip()
+        if not span:
+            raise JudgeParseError(
+                "judge returned no evidence_span - an un-grounded verdict is not trusted"
+            )
+        if _normalize_for_match(span) not in _normalize_for_match(output):
+>           raise JudgeParseError(
+                f"judge cited a span not in the answer (fabricated rationale): {span!r}"
+            )
+E           eval_harness.scorers.judge.JudgeParseError: judge cited a span not in the answer (fabricated rationale): 'However, a more common and efficient way is to use the `--junit-xml` option along with the `-m` option:pytest -m slow --junit-xml=/path/to/output.xmlpytest -m network --junit-xml=/path/to/output.xml'
+
+eval_harness/scorers/judge.py:259: JudgeParseError
+=========================== short test summary info ============================
+XFAIL tests/test_calibration.py::test_judge_calibration[procedural_001] - judge wrongly says PASS: the model's answer is a fully hallucinated pytest flag ('--junit-xml-filter') that does not exist; the same llama3.2 acting as judge can't detect its own hallucination (this is self-grading bias — the canonical LLM-as-judge failure mode)
+XFAIL tests/test_eval_pipeline.py::test_scorers_agree_on_verdict[procedural_001] - semantic FAIL + judge PASS — judge falls for its own hallucinated flag (self-grading bias); semantic correctly says FAIL
+FAILED tests/test_eval_pipeline.py::test_scorer_against_live_ollama[procedural_001-judge]
+FAILED tests/test_judge_variance.py::test_judge_stability[procedural_001-0.7]
+=========== 2 failed, 150 deselected, 2 xfailed in 79.63s (0:01:19) ============
+exit 1

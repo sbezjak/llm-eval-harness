@@ -138,6 +138,17 @@ the free-text "reasoning" field in the judge prompt. Findings 4, 5, 8 and 9 were
 old prompt, and have not been re-run with the new one. Finding 5 is about the old reasoning field, which no longer
 exists.
 
+Re-run 2026-10-30, `procedural_001` only (the made-up pytest flag), llama3.2 judge with the new prompt
+(`reports/judge-guard-procedural-001-fixed-2026-10-30.log`):
+- Finding 4 holds: the judge still passes the hallucinated answer, correctness 9/10. Its quote is the `-m` part of
+  the answer, not the made-up flag.
+- Finding 8 moved: still stuck (5 of 5 runs identical), but at 0.950, not 0.700, so `test_judge_variance.py` fails
+  on that item until it is re-pinned.
+- The guard first refused this quote: the judge skipped a code-fence line (```` ```bash ````) and the line breaks.
+  The guard now ignores fence lines and whitespace (words must still match), and the two expected-failure tests on
+  this item only count an `AssertionError`, so a guard error cannot hide behind them
+  (`reports/judge-guard-procedural-001-2026-10-30.log`, `...-probe-2026-10-30.log`).
+
 Pass `-s` on the `ollama`-marked tests to stream per-item evidence
 (question, model output, per-scorer scores, the judge's quoted evidence) to stdout.
 
