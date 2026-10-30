@@ -429,6 +429,13 @@ logs in `reports/judge-guard-procedural-001-*.log`):
 - **The guard's first version refused a real quote.** The judge skipped
   the ```` ```bash ```` line and the line breaks, as in the example
   above. That is why fence lines and whitespace are now ignored.
+- **What the guard does not check.** It proves the judge looked at the
+  answer, not that it graded it right. Here the quote was real and the
+  score was still wrong. The prompt asks for "the part that most
+  determines your score", and the judge picked the harmless part. To
+  catch the fake flag you would aim the demand at it (quote every
+  command the answer tells you to run) and check those in code against
+  pytest's real flags.
 - **A lesson for F6.** `xfail(strict=True)` without `raises=` counts
   any error as the expected failure. The two F4 expected failures were
   going green on the guard's error, not on the judge's wrong PASS. They

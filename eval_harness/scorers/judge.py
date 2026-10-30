@@ -198,9 +198,11 @@ class LLMJudgeScorer(Scorer):
       `score()` substring-checks that quote against the answer in code.
       A free-text "reasoning" field is unverifiable: the judge can
       fabricate a justification for any number. Forcing a quote the code
-      can check converts the judge's honesty from a hope into an
+      can check turns "the judge read the answer" from a hope into an
       assertion - a fabricated or un-grounded rationale raises rather
-      than passing silently. (This is the shape-blind grounding guard;
+      than passing silently. It does NOT check that the score follows
+      from the quote: on procedural_001 the judge quoted the plausible
+      `-m` lines, skipped the fake flag, and still gave 9/10. (This is the shape-blind grounding guard;
       we never tell the judge *where* the failure is, only that it must
       quote what it read.) The evidence-before-score ordering also keeps
       the older benefit: a model asked for the score first tends to
