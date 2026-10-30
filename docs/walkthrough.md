@@ -54,7 +54,9 @@ this model, not universal claims about LLM judges.
    as judge scored its own wrong answer at 0.700, exactly on the pass
    threshold, every one of 5 reruns. A flaky test gets investigated; a
    deterministic wrong-pass ships the bug. Averaging more runs does
-   nothing when there is no noise to average out.
+   nothing when there is no noise to average out. (Measured with the
+   old judge prompt. With the new one it still passes, now at 0.950,
+   see the [update](#update-2026-10-30-the-judge-must-quote-what-it-graded).)
 2. **BLEU and ROUGE are not "bad at prose," they need matching
    reference shape** (F10). When the expected answer is "8" and the
    model returns a paragraph, n-gram overlap collapses to zero, not
@@ -174,6 +176,8 @@ wrong one. Useful as one signal in a panel; not enough on its own.
 
 ### F4. The judge passes its own hallucination (self-grading bias)
 
+*Measured with the old judge prompt. See the [2026-10-30 update](#update-2026-10-30-the-judge-must-quote-what-it-graded).*
+
 **Question.** If the same model writes the answer and grades the
 answer, does the grading catch the model's own mistakes?
 
@@ -198,6 +202,8 @@ judges, or a non-LLM check for factual claims like flag names that can
 be looked up.
 
 ### F5. The judge's written reasoning can contradict its numeric score
+
+*Measured with the old judge prompt. See the [2026-10-30 update](#update-2026-10-30-the-judge-must-quote-what-it-graded).*
 
 **Question.** The judge returns two things: a paragraph explaining its
 grading, and a number. If I'm building a UI or a debug log around this,
@@ -304,6 +310,8 @@ uses BBQ, BOLD, or similar benchmarks with hundreds of pairs.
 
 ### F8. At the threshold edge, the judge is stuck, not noisy
 
+*Measured with the old judge prompt. See the [2026-10-30 update](#update-2026-10-30-the-judge-must-quote-what-it-graded).*
+
 **Question.** I expected the judge to be noisy at temp=0. Is it?
 
 **Test.** `tests/test_judge_variance.py::test_judge_stability[procedural_001-0.7]`.
@@ -328,6 +336,8 @@ that defense for stuck cases. The fix has to be structural (different
 judge model, panel of judges, factual check for the specific claim).
 
 ### F9. No length bias detected on `llama3.2` (null result)
+
+*Measured with the old judge prompt. See the [2026-10-30 update](#update-2026-10-30-the-judge-must-quote-what-it-graded).*
 
 **Question.** LLM judges often score longer answers higher. Does this
 one?
@@ -377,6 +387,55 @@ collapses the score; long reference plus long answer recovers it.
 Practical version: if you want BLEU or ROUGE to mean anything, write
 reference answers in roughly the shape you expect the system to
 return. For one-word answers, use exact match or a judge instead.
+
+## Update 2026-10-30: the judge must quote what it graded
+
+**What changed.** The judge now has to copy, word for word, the part of
+the answer its score rests on (`evidence_span`). Code checks that the
+copy is really in the answer. If it isn't, or there is no copy, the
+score is refused (`JudgeParseError`) instead of trusted. This replaced
+the free-text `reasoning` field from F5.
+
+**Why.** F5 showed the paragraph can say one thing and the number
+another, and a paragraph can't be checked. A quote can: it is in the
+answer or it isn't.
+
+**How the check forgives a sloppy copy.** Before comparing, it ignores
+quote marks, code-fence lines (```` ```bash ````) and whitespace,
+because a judge that did read the answer still copies those badly. It
+never ignores words, so a made-up quote still fails.
+
+````
+answer:  ...along with the `-m` option:
+
+         ```bash
+         pytest -m slow --junit-xml=/path/to/output.xml
+judge:   ...along with the `-m` option:pytest -m slow --junit-xml=...
+check:   same words in the same order -> accepted
+````
+
+**What the re-run showed** (`procedural_001` only, `llama3.2`, one run,
+logs in `reports/judge-guard-procedural-001-*.log`):
+
+- **F4 still holds.** The judge passes the made-up flag, correctness
+  9/10. The part it quotes is the `-m slow` command, not the fake
+  `--junit-xml-filter` flag, so the quote shows its score rests on the
+  plausible part of the answer.
+- **F8 moved.** Still stuck, 5 of 5 runs identical, but at 0.950, not
+  0.700. The new prompt changed the number, not the shape.
+  `test_judge_variance.py` fails on this item until it is re-pinned.
+- **F5** is about the `reasoning` field, which no longer exists.
+  **F9** was not re-run.
+- **The guard's first version refused a real quote.** The judge skipped
+  the ```` ```bash ```` line and the line breaks, as in the example
+  above. That is why fence lines and whitespace are now ignored.
+- **A lesson for F6.** `xfail(strict=True)` without `raises=` counts
+  any error as the expected failure. The two F4 expected failures were
+  going green on the guard's error, not on the judge's wrong PASS. They
+  now take `raises=AssertionError`, so only the failure on the label
+  counts.
+
+One item, one run, temp 0: a direction, not a rate.
 
 ## Limitations
 
